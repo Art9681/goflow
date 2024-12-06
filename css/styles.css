@@ -1,16 +1,50 @@
+:root {
+    /* Light theme variables */
+    --bg-primary: #f0f0f0;
+    --bg-menu: #2c3e50;
+    --text-primary: #333;
+    --text-menu: #ecf0f1;
+    --button-bg: #34495e;
+    --button-hover: #3d566e;
+    --button-disabled: #7f8c8d;
+    --node-bg: #fff;
+    --node-border: #333;
+    --node-selected: #007BFF;
+    --connector-color: #555;
+    --modal-bg: #fefefe;
+    --modal-overlay: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-menu: #1e2a3a;
+    --text-primary: #ecf0f1;
+    --text-menu: #ecf0f1;
+    --button-bg: #2c3e50;
+    --button-hover: #34495e;
+    --button-disabled: #576574;
+    --node-bg: #2c3e50;
+    --node-border: #ecf0f1;
+    --node-selected: #3498db;
+    --connector-color: #ecf0f1;
+    --modal-bg: #2c3e50;
+    --modal-overlay: rgba(0, 0, 0, 0.6);
+}
+
 body {
     margin: 0;
     overflow: hidden;
     font-family: sans-serif;
     display: flex;
     height: 100vh;
+    color: var(--text-primary);
 }
 
 /* Vertical Menu Styling */
 #menu {
     width: 200px;
-    background: #2c3e50;
-    color: #ecf0f1;
+    background: var(--bg-menu);
+    color: var(--text-menu);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -32,18 +66,28 @@ body {
     cursor: pointer;
     border: none;
     border-radius: 5px;
-    background: #34495e;
-    color: #ecf0f1;
+    background: var(--button-bg);
+    color: var(--text-menu);
     transition: background 0.3s;
 }
 
 #menu button:hover {
-    background: #3d566e;
+    background: var(--button-hover);
 }
 
 #menu button:disabled {
-    background: #7f8c8d;
+    background: var(--button-disabled);
     cursor: not-allowed;
+}
+
+/* Theme Toggle Button */
+#theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;
+    margin-bottom: 20px;
+    background: var(--button-bg) !important;
 }
 
 /* SVG Container Styling */
@@ -55,14 +99,14 @@ body {
 svg {
     width: 100%;
     height: 100%;
-    background: #f0f0f0;
+    background: var(--bg-primary);
     cursor: default;
 }
 
 /* Node Styling */
 .node {
-    fill: #fff;
-    stroke: #333;
+    fill: var(--node-bg);
+    stroke: var(--node-border);
     stroke-width: 2;
     rx: 10;
     ry: 10;
@@ -71,7 +115,7 @@ svg {
 }
 
 .node.selected {
-    stroke: #007BFF;
+    stroke: var(--node-selected);
     stroke-width: 3;
 }
 
@@ -79,46 +123,46 @@ svg {
     font-size: 14px;
     pointer-events: none;
     user-select: none;
-    fill: #333;
+    fill: var(--text-primary);
 }
 
 /* Connection Points Styling */
 .connection-point {
-    fill: #3498db;
-    stroke: #2980b9;
+    fill: var(--node-selected);
+    stroke: var(--node-border);
     stroke-width: 1.5;
     cursor: pointer;
 }
 
-/* Type Labels - Initially hidden */
+/* Type Labels */
 .type-label {
     font-size: 12px;
-    fill: #555;
+    fill: var(--text-primary);
     pointer-events: none;
     user-select: none;
     opacity: 0;
     transition: opacity 0.2s ease-in-out;
 }
 
-/* Show type labels when parent group is hovered */
 .draggable-group:hover .type-label {
     opacity: 1;
 }
 
-/* Rest of the styles remain the same */
+/* Connector Styling */
 .connector-solid {
     fill: none;
-    stroke: #555;
+    stroke: var(--connector-color);
     stroke-width: 2;
 }
 
 .connector-dashed {
     fill: none;
-    stroke: #555;
+    stroke: var(--connector-color);
     stroke-width: 2;
     stroke-dasharray: 6, 4;
 }
 
+/* Modal Styling */
 .modal {
     display: none;
     position: fixed;
@@ -128,22 +172,23 @@ svg {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: var(--modal-overlay);
 }
 
 .modal-content {
-    background-color: #fefefe;
+    background-color: var(--modal-bg);
     margin: 10% auto;
     padding: 20px;
-    border: 1px solid #888;
+    border: 1px solid var(--node-border);
     width: 300px;
     border-radius: 8px;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
     position: relative;
+    color: var(--text-primary);
 }
 
 .close {
-    color: #aaa;
+    color: var(--text-primary);
     float: right;
     font-size: 24px;
     font-weight: bold;
@@ -155,7 +200,7 @@ svg {
 
 .close:hover,
 .close:focus {
-    color: black;
+    opacity: 0.8;
     text-decoration: none;
 }
 
@@ -173,8 +218,10 @@ svg {
 .modal select {
     padding: 8px;
     font-size: 14px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--node-border);
     border-radius: 4px;
+    background: var(--node-bg);
+    color: var(--text-primary);
 }
 
 .modal button {
@@ -207,7 +254,7 @@ svg {
     list-style: none;
     padding: 0;
     margin: 0;
-    background: #2c3e50;
+    background: var(--bg-menu);
     border-radius: 5px;
     display: none;
     min-width: 120px;
@@ -216,13 +263,13 @@ svg {
 
 #context-menu li {
     padding: 10px;
-    color: #ecf0f1;
+    color: var(--text-menu);
     cursor: pointer;
-    border-bottom: 1px solid #34495e;
+    border-bottom: 1px solid var(--button-bg);
 }
 
 #context-menu li:hover {
-    background: #3d566e;
+    background: var(--button-hover);
 }
 
 #context-menu li:last-child {
