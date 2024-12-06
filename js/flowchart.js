@@ -1,4 +1,18 @@
 // Enhanced Flowchart with typed inputs/outputs, Modals, and Settings
+import { 
+    nodes, 
+    connectors, 
+    getConnectionPoint, 
+    updateConnectors, 
+    runTests 
+} from './flowchart-utils.js';
+
+import { 
+    selectNode, 
+    onMouseDown, 
+    onMouseMove, 
+    onMouseUp 
+} from './flowchart-drag-handlers.js';
 
 const svg = document.getElementById('flowchart');
 const addNodeBtn = document.getElementById('add-node-btn');
@@ -22,156 +36,22 @@ const settingsCancel = document.getElementById('settings-cancel');
 const settingsForm = document.getElementById('settings-form');
 const connectorShapeSelect = document.getElementById('connector-shape');
 
-// Data structures to manage nodes and connectors
-const nodes = [
-    { id: 'A', el: document.querySelector('[data-node-id="A"]') },
-    { id: 'B', el: document.querySelector('[data-node-id="B"]') },
-    { id: 'C', el: document.querySelector('[data-node-id="C"]') }
-];
-
-const connectors = [
-    { id: 'connector-A-B', from: 'A', to: 'B', el: document.getElementById('connector-A-B'), type: 'solid' },
-    { id: 'connector-B-C', from: 'B', to: 'C', el: document.getElementById('connector-B-C'), type: 'dashed' }
-];
-
-let selectedNode = null;
-let offsetX = 0;
-let offsetY = 0;
 let nodeCounter = 4; // To generate unique node IDs
+let selectedNode = null; // Track the currently selected node
 
 // Global setting for connector shape
 let currentConnectorShape = 'elbow'; // Default shape
 
-// Utility function to get connection point position
-function getConnectionPoint(node, type) {
-    const rect = node.querySelector('rect');
-    const x = parseFloat(rect.getAttribute('x'));
-    const y = parseFloat(rect.getAttribute('y'));
-    const width = parseFloat(rect.getAttribute('width'));
-    const height = parseFloat(rect.getAttribute('height'));
-
-    if (type === 'input') {
-        return { x: x, y: y + height / 2 };
-    } else if (type === 'output') {
-        return { x: x + width, y: y + height / 2 };
-    }
-    return { x: x + width / 2, y: y + height / 2 };
+// Helper function to capitalize first letter
+function capitalizeFirstLetter(string) {
+    if (string === 'none') return 'None';
+    return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// Function to get connector path based on shape
-function getConnectorPath(start, end, shape) {
-    if (shape === 'straight') {
-        return `M ${start.x},${start.y} L ${end.x},${end.y}`;
-    } else if (shape === 'elbow') {
-        const midX = (start.x + end.x) / 2;
-        return `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
-    } else if (shape === 'curved') {
-        const control1 = { x: start.x + (end.x - start.x) / 4, y: start.y };
-        const control2 = { x: end.x - (end.x - start.x) / 4, y: end.y };
-        return `M ${start.x},${start.y} C ${control1.x},${control1.y} ${control2.x},${control2.y} ${end.x},${end.y}`;
-    }
-    // Default to elbow if shape is unrecognized
-    const midX = (start.x + end.x) / 2;
-    return `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
-}
-
-// Function to update all connectors
-function updateConnectors() {
-    connectors.forEach(conn => {
-        const fromNode = nodes.find(n => n.id === conn.from);
-        const toNode = nodes.find(n => n.id === conn.to);
-        if (!fromNode || !toNode) return;
-
-        const start = getConnectionPoint(fromNode.el, 'output');
-        const end = getConnectionPoint(toNode.el, 'input');
-
-        const d = getConnectorPath(start, end, currentConnectorShape);
-        conn.el.setAttribute('d', d);
-    });
-}
-
-// Function to select a node
-function selectNode(nodeEl) {
-    if (selectedNode) {
-        selectedNode.querySelector('.node').classList.remove('selected');
-    }
+// Modify selectNode to update the local selectedNode
+function updateSelectedNode(nodeEl) {
     selectedNode = nodeEl;
-    if (selectedNode) {
-        selectedNode.querySelector('.node').classList.add('selected');
-        removeNodeBtn.disabled = false;
-    } else {
-        removeNodeBtn.disabled = true;
-    }
-}
-
-// Event handlers for dragging
-function onMouseDown(e) {
-    const nodeGroup = e.target.closest('.draggable-group');
-    if (nodeGroup) {
-        selectNode(nodeGroup);
-        const rect = nodeGroup.querySelector('rect');
-        const startX = parseFloat(rect.getAttribute('x'));
-        const startY = parseFloat(rect.getAttribute('y'));
-        // Calculate offset relative to SVG container
-        const svgRect = svg.getBoundingClientRect();
-        offsetX = e.clientX - svgRect.left - startX;
-        offsetY = e.clientY - svgRect.top - startY;
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-    } else {
-        selectNode(null);
-    }
-}
-
-function onMouseMove(e) {
-    if (selectedNode) {
-        const rect = selectedNode.querySelector('rect');
-        const text = selectedNode.querySelector('text');
-        const width = parseFloat(rect.getAttribute('width'));
-        const height = parseFloat(rect.getAttribute('height'));
-
-        // Calculate new position relative to SVG container
-        const svgRect = svg.getBoundingClientRect();
-        let newX = e.clientX - svgRect.left - offsetX;
-        let newY = e.clientY - svgRect.top - offsetY;
-
-        // Ensure the node stays within the SVG bounds
-        newX = Math.max(0, Math.min(newX, svg.clientWidth - width));
-        newY = Math.max(0, Math.min(newY, svg.clientHeight - height));
-
-        rect.setAttribute('x', newX);
-        rect.setAttribute('y', newY);
-        // Update text position accordingly
-        text.setAttribute('x', newX + width / 2);
-        text.setAttribute('y', newY + height / 2 + 5); // +5 for vertical alignment
-
-        // Update connection points positions
-        const inputPoint = selectedNode.querySelector('.connection-point.input');
-        const outputPoint = selectedNode.querySelector('.connection-point.output');
-        inputPoint.setAttribute('cx', newX);
-        inputPoint.setAttribute('cy', newY + height / 2);
-        outputPoint.setAttribute('cx', newX + width);
-        outputPoint.setAttribute('cy', newY + height / 2);
-
-        // Find all type labels within the node group
-        const typeLabels = selectedNode.querySelectorAll('.type-label');
-        typeLabels.forEach((label, index) => {
-            if (index === 0) { // Input label
-                label.setAttribute('x', newX - 10);
-                label.setAttribute('y', newY + height / 2 - 10);
-            } else { // Output label
-                label.setAttribute('x', newX + width + 10);
-                label.setAttribute('y', newY + height / 2 - 10);
-            }
-        });
-
-        updateConnectors();
-    }
-}
-
-function onMouseUp() {
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+    selectNode(nodeEl, removeNodeBtn);
 }
 
 // Event listener for adding a new node
@@ -227,12 +107,6 @@ removeNodeCancel.onclick = () => {
 settingsCancel.onclick = () => {
     settingsModal.style.display = 'none';
 };
-
-// Helper function to capitalize first letter
-function capitalizeFirstLetter(string) {
-    if (string === 'none') return 'None';
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
 
 // Handle Add Node Form Submission
 addNodeForm.addEventListener('submit', (e) => {
@@ -342,7 +216,7 @@ addNodeForm.addEventListener('submit', (e) => {
         type: connectorType
     });
 
-    updateConnectors();
+    updateConnectors(currentConnectorShape);
 
     // Close the modal
     addNodeModal.style.display = 'none';
@@ -376,10 +250,10 @@ confirmRemoveBtn.addEventListener('click', () => {
     });
 
     // Deselect node
-    selectNode(null);
+    updateSelectedNode(null);
 
     // Update remaining connectors
-    updateConnectors();
+    updateConnectors(currentConnectorShape);
 
     // Close the modal
     removeNodeModal.style.display = 'none';
@@ -394,14 +268,20 @@ settingsForm.addEventListener('submit', (e) => {
     currentConnectorShape = selectedShape;
 
     // Update all existing connectors
-    updateConnectors();
+    updateConnectors(currentConnectorShape);
 
     // Close the modal
     settingsModal.style.display = 'none';
 });
 
 // Event listeners for dragging
-svg.addEventListener('mousedown', onMouseDown);
+svg.addEventListener('mousedown', (e) => {
+    const nodeGroup = e.target.closest('.draggable-group');
+    if (nodeGroup) {
+        updateSelectedNode(nodeGroup);
+    }
+    onMouseDown(e, svg, removeNodeBtn, currentConnectorShape);
+});
 
 // Close modals when clicking outside of the modal content
 window.onclick = function (event) {
@@ -417,7 +297,7 @@ window.onclick = function (event) {
 };
 
 // Initial draw of connectors
-updateConnectors();
+updateConnectors(currentConnectorShape);
 
 // Initialize connection points positions for existing nodes
 nodes.forEach(node => {
@@ -435,16 +315,5 @@ nodes.forEach(node => {
     outputPoint.setAttribute('cy', y + height / 2);
 });
 
-// Initial Unit Tests (Run in console as a basic check)
-function runTests() {
-    console.assert(nodes.length === 3, 'Should have 3 nodes initially');
-    console.assert(connectors.length === 2, 'Should have 2 connectors initially');
-    console.assert(document.querySelector('[data-node-id="A"]'), 'Node A should exist');
-    console.assert(document.querySelector('[data-node-id="B"]'), 'Node B should exist');
-    console.assert(document.querySelector('[data-node-id="C"]'), 'Node C should exist');
-    console.assert(document.getElementById('connector-A-B'), 'Connector A-B should exist');
-    console.assert(document.getElementById('connector-B-C'), 'Connector B-C should exist');
-    console.log('All basic checks passed!');
-}
-
+// Run initial tests
 runTests();
