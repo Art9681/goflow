@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interactive Flowchart with Connection Points and Modals</title>
+  <title>Interactive Flowchart with Connection Points, Modals, and Settings</title>
   <style>
     body {
       margin: 0;
@@ -201,6 +201,24 @@
     .modal .cancel-btn:hover {
       background: #c0392b;
     }
+
+    /* Settings Button Styling */
+    #settings-btn {
+      width: 160px;
+      padding: 10px 20px;
+      margin: 10px 0;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background: #34495e;
+      color: #ecf0f1;
+      transition: background 0.3s;
+    }
+
+    #settings-btn:hover {
+      background: #3d566e;
+    }
   </style>
 </head>
 <body>
@@ -209,6 +227,7 @@
     <h2>Flowchart Menu</h2>
     <button id="add-node-btn">Add Node</button>
     <button id="remove-node-btn" disabled>Remove Node</button>
+    <button id="settings-btn">Settings</button>
   </div>
 
   <!-- SVG Container -->
@@ -283,12 +302,32 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="settings-close">&times;</span>
+      <h3>Settings</h3>
+      <form id="settings-form">
+        <label for="connector-shape">Connector Shape:</label>
+        <select id="connector-shape" name="connectorShape">
+          <option value="straight">Straight</option>
+          <option value="elbow">Elbow</option>
+          <option value="curved">Curved</option>
+        </select>
+
+        <button type="submit">Save Settings</button>
+        <button type="button" class="cancel-btn" id="settings-cancel">Cancel</button>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // Enhanced Flowchart with Connection Points and Modals
+    // Enhanced Flowchart with Connection Points, Modals, and Settings
 
     const svg = document.getElementById('flowchart');
     const addNodeBtn = document.getElementById('add-node-btn');
     const removeNodeBtn = document.getElementById('remove-node-btn');
+    const settingsBtn = document.getElementById('settings-btn');
 
     // Modal Elements
     const addNodeModal = document.getElementById('add-node-modal');
@@ -300,6 +339,12 @@
     const removeNodeClose = document.getElementById('remove-node-close');
     const removeNodeCancel = document.getElementById('remove-node-cancel');
     const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
+
+    const settingsModal = document.getElementById('settings-modal');
+    const settingsClose = document.getElementById('settings-close');
+    const settingsCancel = document.getElementById('settings-cancel');
+    const settingsForm = document.getElementById('settings-form');
+    const connectorShapeSelect = document.getElementById('connector-shape');
 
     // Data structures to manage nodes and connectors
     const nodes = [
@@ -318,6 +363,9 @@
     let offsetY = 0;
     let nodeCounter = 4; // To generate unique node IDs
 
+    // Global setting for connector shape
+    let currentConnectorShape = 'elbow'; // Default shape
+
     // Utility function to get connection point position
     function getConnectionPoint(node, type) {
       const rect = node.el.querySelector('rect');
@@ -334,6 +382,23 @@
       return { x: x + width / 2, y: y + height / 2 };
     }
 
+    // Function to get connector path based on shape
+    function getConnectorPath(start, end, shape) {
+      if (shape === 'straight') {
+        return `M ${start.x},${start.y} L ${end.x},${end.y}`;
+      } else if (shape === 'elbow') {
+        const midX = (start.x + end.x) / 2;
+        return `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
+      } else if (shape === 'curved') {
+        const control1 = { x: start.x + (end.x - start.x) / 4, y: start.y };
+        const control2 = { x: end.x - (end.x - start.x) / 4, y: end.y };
+        return `M ${start.x},${start.y} C ${control1.x},${control1.y} ${control2.x},${control2.y} ${end.x},${end.y}`;
+      }
+      // Default to elbow if shape is unrecognized
+      const midX = (start.x + end.x) / 2;
+      return `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
+    }
+
     // Function to update all connectors
     function updateConnectors() {
       connectors.forEach(conn => {
@@ -344,9 +409,7 @@
         const start = getConnectionPoint(fromNode, 'output');
         const end = getConnectionPoint(toNode, 'input');
 
-        // Create an L-shaped path
-        const midX = (start.x + end.x) / 2;
-        const d = `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
+        const d = getConnectorPath(start, end, currentConnectorShape);
         conn.el.setAttribute('d', d);
       });
     }
@@ -444,6 +507,13 @@
       removeNodeModal.style.display = 'block';
     });
 
+    // Event listener for opening the Settings Modal
+    settingsBtn.addEventListener('click', () => {
+      // Set the current selection in the dropdown
+      connectorShapeSelect.value = currentConnectorShape;
+      settingsModal.style.display = 'block';
+    });
+
     // Close modals when clicking on <span> (x)
     addNodeClose.onclick = () => {
       addNodeModal.style.display = 'none';
@@ -453,6 +523,10 @@
       removeNodeModal.style.display = 'none';
     };
 
+    settingsClose.onclick = () => {
+      settingsModal.style.display = 'none';
+    };
+
     // Close modals when clicking on Cancel buttons
     addNodeCancel.onclick = () => {
       addNodeModal.style.display = 'none';
@@ -460,6 +534,10 @@
 
     removeNodeCancel.onclick = () => {
       removeNodeModal.style.display = 'none';
+    };
+
+    settingsCancel.onclick = () => {
+      settingsModal.style.display = 'none';
     };
 
     // Handle Add Node Form Submission
@@ -477,7 +555,7 @@
       nodeCounter++;
 
       // Define position relative to selected node
-      const selectedCenter = getConnectionPoint({ el: selectedNode }, 'output');
+      const selectedCenter = getConnectionPoint(selectedNode, 'output');
       const defaultOffset = 150; // Distance from selected node's output
       const defaultX = selectedCenter.x + defaultOffset;
       const defaultY = selectedCenter.y - 25; // Adjust to align vertically
@@ -584,6 +662,21 @@
       removeNodeModal.style.display = 'none';
     });
 
+    // Handle Settings Form Submission
+    settingsForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const selectedShape = connectorShapeSelect.value;
+
+      // Update the global connector shape
+      currentConnectorShape = selectedShape;
+
+      // Update all existing connectors
+      updateConnectors();
+
+      // Close the modal
+      settingsModal.style.display = 'none';
+    });
+
     // Event listeners for dragging
     svg.addEventListener('mousedown', onMouseDown);
 
@@ -594,6 +687,9 @@
       }
       if (event.target == removeNodeModal) {
         removeNodeModal.style.display = "none";
+      }
+      if (event.target == settingsModal) {
+        settingsModal.style.display = "none";
       }
     };
 
