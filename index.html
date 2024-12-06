@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interactive Flowchart with Modals</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Vertical Menu Styling */
+    #menu {
+      width: 200px;
+      background: #2c3e50;
+      color: #ecf0f1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20px;
+      box-sizing: border-box;
+    }
+
+    #menu h2 {
+      margin-bottom: 30px;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    #menu button {
+      width: 160px;
+      padding: 10px 20px;
+      margin: 10px 0;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background: #34495e;
+      color: #ecf0f1;
+      transition: background 0.3s;
+    }
+
+    #menu button:hover {
+      background: #3d566e;
+    }
+
+    #menu button:disabled {
+      background: #7f8c8d;
+      cursor: not-allowed;
+    }
+
+    /* SVG Container Styling */
+    #svg-container {
+      flex: 1;
+      position: relative;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      background: #f0f0f0;
+      cursor: default;
+    }
+
+    /* Node Styling */
+    .node {
+      fill: #fff;
+      stroke: #333;
+      stroke-width: 2;
+      rx: 10; /* Rounded corners for nodes */
+      ry: 10; /* Rounded corners for nodes */
+      cursor: move;
+      transition: stroke 0.3s, stroke-width 0.3s;
+    }
+
+    .node.selected {
+      stroke: #007BFF;
+      stroke-width: 3;
+    }
+
+    .node-text {
+      font-size: 14px;
+      pointer-events: none;
+      user-select: none;
+      fill: #333;
+    }
+
+    /* Connector Styling */
+    .connector-solid {
+      fill: none;
+      stroke: #555;
+      stroke-width: 2;
+    }
+
+    .connector-dashed {
+      fill: none;
+      stroke: #555;
+      stroke-width: 2;
+      stroke-dasharray: 6,4;
+    }
+
+    /* Modal Styling */
+    .modal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      z-index: 100;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto; /* 10% from the top and centered */
+      padding: 20px;
+      border: 1px solid #888;
+      width: 300px; /* Could be more or less, depending on screen size */
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      position: relative;
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 24px;
+      font-weight: bold;
+      position: absolute;
+      right: 15px;
+      top: 10px;
+      cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+    }
+
+    .modal form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal label {
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+
+    .modal input[type="text"],
+    .modal select {
+      padding: 8px;
+      font-size: 14px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .modal button {
+      margin-top: 20px;
+      padding: 10px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background: #2ecc71;
+      color: #fff;
+      transition: background 0.3s;
+    }
+
+    .modal button:hover {
+      background: #27ae60;
+    }
+
+    .modal .cancel-btn {
+      background: #e74c3c;
+    }
+
+    .modal .cancel-btn:hover {
+      background: #c0392b;
+    }
+  </style>
+</head>
+<body>
+  <!-- Vertical Menu on the Left -->
+  <div id="menu">
+    <h2>Flowchart Menu</h2>
+    <button id="add-node-btn">Add Node</button>
+    <button id="remove-node-btn" disabled>Remove Node</button>
+  </div>
+
+  <!-- SVG Container -->
+  <div id="svg-container">
+    <svg id="flowchart">
+      <!-- Initial Nodes -->
+      <!-- Node A -->
+      <g class="draggable-group" data-node-id="A">
+        <rect class="node" x="150" y="100" width="100" height="50"></rect>
+        <text class="node-text" x="200" y="130" text-anchor="middle" alignment-baseline="middle">Node A</text>
+      </g>
+
+      <!-- Node B -->
+      <g class="draggable-group" data-node-id="B">
+        <rect class="node" x="350" y="200" width="100" height="50"></rect>
+        <text class="node-text" x="400" y="230" text-anchor="middle" alignment-baseline="middle">Node B</text>
+      </g>
+
+      <!-- Node C -->
+      <g class="draggable-group" data-node-id="C">
+        <rect class="node" x="550" y="100" width="100" height="50"></rect>
+        <text class="node-text" x="600" y="130" text-anchor="middle" alignment-baseline="middle">Node C</text>
+      </g>
+
+      <!-- Initial Connectors -->
+      <!-- Connector from A to B (solid) -->
+      <path class="connector-solid" id="connector-A-B"></path>
+
+      <!-- Connector from B to C (dashed) -->
+      <path class="connector-dashed" id="connector-B-C"></path>
+    </svg>
+  </div>
+
+  <!-- Add Node Modal -->
+  <div id="add-node-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="add-node-close">&times;</span>
+      <h3>Add New Node</h3>
+      <form id="add-node-form">
+        <label for="node-label">Node Label:</label>
+        <input type="text" id="node-label" name="nodeLabel" required placeholder="Enter node label">
+
+        <label for="connector-type">Connector Type:</label>
+        <select id="connector-type" name="connectorType">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+        </select>
+
+        <button type="submit">Add Node</button>
+        <button type="button" class="cancel-btn" id="add-node-cancel">Cancel</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Remove Node Modal -->
+  <div id="remove-node-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="remove-node-close">&times;</span>
+      <h3>Remove Node</h3>
+      <p>Are you sure you want to remove the selected node?</p>
+      <button id="confirm-remove-btn">Yes, Remove</button>
+      <button type="button" class="cancel-btn" id="remove-node-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // Enhanced Flowchart with Add/Delete Modals
+
+    const svg = document.getElementById('flowchart');
+    const addNodeBtn = document.getElementById('add-node-btn');
+    const removeNodeBtn = document.getElementById('remove-node-btn');
+
+    // Modal Elements
+    const addNodeModal = document.getElementById('add-node-modal');
+    const addNodeClose = document.getElementById('add-node-close');
+    const addNodeCancel = document.getElementById('add-node-cancel');
+    const addNodeForm = document.getElementById('add-node-form');
+
+    const removeNodeModal = document.getElementById('remove-node-modal');
+    const removeNodeClose = document.getElementById('remove-node-close');
+    const removeNodeCancel = document.getElementById('remove-node-cancel');
+    const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
+
+    // Data structures to manage nodes and connectors
+    const nodes = [
+      { id: 'A', el: document.querySelector('[data-node-id="A"]') },
+      { id: 'B', el: document.querySelector('[data-node-id="B"]') },
+      { id: 'C', el: document.querySelector('[data-node-id="C"]') }
+    ];
+
+    const connectors = [
+      { id: 'connector-A-B', from: 'A', to: 'B', el: document.getElementById('connector-A-B'), type: 'solid' },
+      { id: 'connector-B-C', from: 'B', to: 'C', el: document.getElementById('connector-B-C'), type: 'dashed' }
+    ];
+
+    let selectedNode = null;
+    let offsetX = 0;
+    let offsetY = 0;
+    let nodeCounter = 4; // To generate unique node IDs
+
+    // Utility function to get node center
+    function getNodeCenter(node) {
+      const rect = node.el.querySelector('rect');
+      const x = parseFloat(rect.getAttribute('x')) + parseFloat(rect.getAttribute('width')) / 2;
+      const y = parseFloat(rect.getAttribute('y')) + parseFloat(rect.getAttribute('height')) / 2;
+      return { x, y };
+    }
+
+    // Function to update all connectors
+    function updateConnectors() {
+      connectors.forEach(conn => {
+        const fromNode = nodes.find(n => n.id === conn.from);
+        const toNode = nodes.find(n => n.id === conn.to);
+        if (!fromNode || !toNode) return;
+
+        const start = getNodeCenter(fromNode);
+        const end = getNodeCenter(toNode);
+
+        // Create an L-shaped path
+        const midX = (start.x + end.x) / 2;
+        const d = `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
+        conn.el.setAttribute('d', d);
+      });
+    }
+
+    // Function to select a node
+    function selectNode(nodeEl) {
+      if (selectedNode) {
+        selectedNode.querySelector('.node').classList.remove('selected');
+      }
+      selectedNode = nodeEl;
+      if (selectedNode) {
+        selectedNode.querySelector('.node').classList.add('selected');
+        removeNodeBtn.disabled = false;
+      } else {
+        removeNodeBtn.disabled = true;
+      }
+    }
+
+    // Event handlers for dragging
+    function onMouseDown(e) {
+      const nodeGroup = e.target.closest('.draggable-group');
+      if (nodeGroup) {
+        selectNode(nodeGroup);
+        const rect = nodeGroup.querySelector('rect');
+        const startX = parseFloat(rect.getAttribute('x'));
+        const startY = parseFloat(rect.getAttribute('y'));
+        // Calculate offset relative to SVG container
+        const svgRect = svg.getBoundingClientRect();
+        offsetX = e.clientX - svgRect.left - startX;
+        offsetY = e.clientY - svgRect.top - startY;
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      } else {
+        selectNode(null);
+      }
+    }
+
+    function onMouseMove(e) {
+      if (selectedNode) {
+        const rect = selectedNode.querySelector('rect');
+        const text = selectedNode.querySelector('text');
+        const width = parseFloat(rect.getAttribute('width'));
+        const height = parseFloat(rect.getAttribute('height'));
+
+        // Calculate new position relative to SVG container
+        const svgRect = svg.getBoundingClientRect();
+        let newX = e.clientX - svgRect.left - offsetX;
+        let newY = e.clientY - svgRect.top - offsetY;
+
+        // Ensure the node stays within the SVG bounds
+        newX = Math.max(0, Math.min(newX, svg.clientWidth - width));
+        newY = Math.max(0, Math.min(newY, svg.clientHeight - height));
+
+        rect.setAttribute('x', newX);
+        rect.setAttribute('y', newY);
+        // Update text position accordingly
+        text.setAttribute('x', newX + width / 2);
+        text.setAttribute('y', newY + height / 2 + 5); // +5 for vertical alignment
+
+        updateConnectors();
+      }
+    }
+
+    function onMouseUp() {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    }
+
+    // Event listener for adding a new node
+    addNodeBtn.addEventListener('click', () => {
+      if (!selectedNode) {
+        alert('Please select a node to connect the new node.');
+        return;
+      }
+      // Open the Add Node Modal
+      addNodeModal.style.display = 'block';
+      addNodeForm.reset();
+    });
+
+    // Event listener for removing the selected node
+    removeNodeBtn.addEventListener('click', () => {
+      if (!selectedNode) {
+        alert('Please select a node to remove.');
+        return;
+      }
+      // Open the Remove Node Modal
+      removeNodeModal.style.display = 'block';
+    });
+
+    // Close modals when clicking on <span> (x)
+    addNodeClose.onclick = () => {
+      addNodeModal.style.display = 'none';
+    };
+
+    removeNodeClose.onclick = () => {
+      removeNodeModal.style.display = 'none';
+    };
+
+    // Close modals when clicking on Cancel buttons
+    addNodeCancel.onclick = () => {
+      addNodeModal.style.display = 'none';
+    };
+
+    removeNodeCancel.onclick = () => {
+      removeNodeModal.style.display = 'none';
+    };
+
+    // Handle Add Node Form Submission
+    addNodeForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const nodeLabel = document.getElementById('node-label').value.trim();
+      const connectorType = document.getElementById('connector-type').value;
+
+      if (nodeLabel === '') {
+        alert('Node label cannot be empty.');
+        return;
+      }
+
+      const newNodeId = `N${nodeCounter}`;
+      nodeCounter++;
+
+      // Define position relative to selected node
+      const selectedCenter = getNodeCenter({ el: selectedNode });
+      const defaultOffset = 150; // Distance from selected node
+      const defaultX = selectedCenter.x + defaultOffset;
+      const defaultY = selectedCenter.y;
+
+      // Create node group
+      const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      nodeGroup.setAttribute('class', 'draggable-group');
+      nodeGroup.setAttribute('data-node-id', newNodeId);
+
+      // Create rectangle
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('class', 'node');
+      rect.setAttribute('x', defaultX);
+      rect.setAttribute('y', defaultY);
+      rect.setAttribute('width', '100');
+      rect.setAttribute('height', '50');
+
+      // Create text
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('class', 'node-text');
+      text.setAttribute('x', defaultX + 50);
+      text.setAttribute('y', defaultY + 25 + 5); // +5 for vertical alignment
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('alignment-baseline', 'middle');
+      text.textContent = nodeLabel;
+
+      nodeGroup.appendChild(rect);
+      nodeGroup.appendChild(text);
+      svg.appendChild(nodeGroup);
+
+      // Add to nodes array
+      nodes.push({ id: newNodeId, el: nodeGroup });
+
+      // Create connector from selected node to new node
+      const connectorId = `connector-${selectedNode.getAttribute('data-node-id')}-${newNodeId}`;
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('id', connectorId);
+      path.setAttribute('class', connectorType === 'solid' ? 'connector-solid' : 'connector-dashed');
+      svg.insertBefore(path, svg.firstChild); // Insert behind nodes
+
+      connectors.push({
+        id: connectorId,
+        from: selectedNode.getAttribute('data-node-id'),
+        to: newNodeId,
+        el: path,
+        type: connectorType
+      });
+
+      updateConnectors();
+
+      // Close the modal
+      addNodeModal.style.display = 'none';
+    });
+
+    // Handle Remove Node Confirmation
+    confirmRemoveBtn.addEventListener('click', () => {
+      if (!selectedNode) {
+        alert('No node selected.');
+        removeNodeModal.style.display = 'none';
+        return;
+      }
+
+      const nodeId = selectedNode.getAttribute('data-node-id');
+
+      // Remove from SVG
+      svg.removeChild(selectedNode);
+
+      // Remove from nodes array
+      const nodeIndex = nodes.findIndex(n => n.id === nodeId);
+      if (nodeIndex !== -1) {
+        nodes.splice(nodeIndex, 1);
+      }
+
+      // Remove associated connectors
+      const connectorsToRemove = connectors.filter(conn => conn.from === nodeId || conn.to === nodeId);
+      connectorsToRemove.forEach(conn => {
+        svg.removeChild(conn.el);
+        const index = connectors.findIndex(c => c.id === conn.id);
+        if (index !== -1) connectors.splice(index, 1);
+      });
+
+      // Deselect node
+      selectNode(null);
+
+      // Update remaining connectors
+      updateConnectors();
+
+      // Close the modal
+      removeNodeModal.style.display = 'none';
+    });
+
+    // Event listeners for dragging
+    svg.addEventListener('mousedown', onMouseDown);
+
+    // Close modals when clicking outside of the modal content
+    window.onclick = function(event) {
+      if (event.target == addNodeModal) {
+        addNodeModal.style.display = "none";
+      }
+      if (event.target == removeNodeModal) {
+        removeNodeModal.style.display = "none";
+      }
+    };
+
+    // Initial draw of connectors
+    updateConnectors();
+
+    // Initial Unit Tests (Run in console as a basic check)
+    function runTests() {
+      console.assert(nodes.length === 3, 'Should have 3 nodes initially');
+      console.assert(connectors.length === 2, 'Should have 2 connectors initially');
+      console.assert(document.querySelector('[data-node-id="A"]'), 'Node A should exist');
+      console.assert(document.querySelector('[data-node-id="B"]'), 'Node B should exist');
+      console.assert(document.querySelector('[data-node-id="C"]'), 'Node C should exist');
+      console.assert(document.getElementById('connector-A-B'), 'Connector A-B should exist');
+      console.assert(document.getElementById('connector-B-C'), 'Connector B-C should exist');
+      console.log('All basic checks passed!');
+    }
+
+    runTests();
+  </script>
+</body>
+</html>
