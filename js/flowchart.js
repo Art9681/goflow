@@ -20,6 +20,12 @@ import {
     handleSettingsChange
 } from './flowchart-modal-handlers.js';
 
+import {
+    setupModalCloseListeners,
+    setupWindowClickHandler,
+    initializeConnectionPoints
+} from './flowchart-event-handlers.js';
+
 const svg = document.getElementById('flowchart');
 const addNodeBtn = document.getElementById('add-node-btn');
 const removeNodeBtn = document.getElementById('remove-node-btn');
@@ -54,6 +60,26 @@ function updateSelectedNode(nodeEl) {
     selectNode(nodeEl, removeNodeBtn);
 }
 
+// Set up modal close listeners
+setupModalCloseListeners(
+    addNodeModal, 
+    addNodeClose, 
+    addNodeCancel,
+    removeNodeModal, 
+    removeNodeClose, 
+    removeNodeCancel,
+    settingsModal, 
+    settingsClose, 
+    settingsCancel
+);
+
+// Set up window click handler for closing modals
+setupWindowClickHandler(
+    addNodeModal, 
+    removeNodeModal, 
+    settingsModal
+);
+
 // Event listener for adding a new node
 addNodeBtn.addEventListener('click', () => {
     if (!selectedNode) {
@@ -81,32 +107,6 @@ settingsBtn.addEventListener('click', () => {
     connectorShapeSelect.value = currentConnectorShape;
     settingsModal.style.display = 'block';
 });
-
-// Close modals when clicking on <span> (x)
-addNodeClose.onclick = () => {
-    addNodeModal.style.display = 'none';
-};
-
-removeNodeClose.onclick = () => {
-    removeNodeModal.style.display = 'none';
-};
-
-settingsClose.onclick = () => {
-    settingsModal.style.display = 'none';
-};
-
-// Close modals when clicking on Cancel buttons
-addNodeCancel.onclick = () => {
-    addNodeModal.style.display = 'none';
-};
-
-removeNodeCancel.onclick = () => {
-    removeNodeModal.style.display = 'none';
-};
-
-settingsCancel.onclick = () => {
-    settingsModal.style.display = 'none';
-};
 
 // Handle Add Node Form Submission
 addNodeForm.addEventListener('submit', (e) => {
@@ -164,37 +164,11 @@ svg.addEventListener('mousedown', (e) => {
     onMouseDown(e, svg, removeNodeBtn, currentConnectorShape);
 });
 
-// Close modals when clicking outside of the modal content
-window.onclick = function (event) {
-    if (event.target == addNodeModal) {
-        addNodeModal.style.display = "none";
-    }
-    if (event.target == removeNodeModal) {
-        removeNodeModal.style.display = "none";
-    }
-    if (event.target == settingsModal) {
-        settingsModal.style.display = "none";
-    }
-};
-
 // Initial draw of connectors
 updateConnectors(currentConnectorShape);
 
 // Initialize connection points positions for existing nodes
-nodes.forEach(node => {
-    const inputPoint = node.el.querySelector('.connection-point.input');
-    const outputPoint = node.el.querySelector('.connection-point.output');
-    const rect = node.el.querySelector('rect');
-    const x = parseFloat(rect.getAttribute('x'));
-    const y = parseFloat(rect.getAttribute('y'));
-    const width = parseFloat(rect.getAttribute('width'));
-    const height = parseFloat(rect.getAttribute('height'));
-
-    inputPoint.setAttribute('cx', x);
-    inputPoint.setAttribute('cy', y + height / 2);
-    outputPoint.setAttribute('cx', x + width);
-    outputPoint.setAttribute('cy', y + height / 2);
-});
+initializeConnectionPoints(nodes);
 
 // Run initial tests
 runTests();
