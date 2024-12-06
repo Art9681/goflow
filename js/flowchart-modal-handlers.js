@@ -19,7 +19,9 @@ export function handleAddNode(
     svg, 
     nodeCounter, 
     currentConnectorShape, 
-    updateSelectedNode
+    updateSelectedNode,
+    x,  // new
+    y   // new
 ) {
     const nodeLabel = document.getElementById('node-label').value.trim();
     const connectorType = document.getElementById('connector-type').value;
@@ -41,11 +43,9 @@ export function handleAddNode(
     const newNodeId = `N${nodeCounter}`;
     nodeCounter++;
 
-    // Use selectedNode directly
-    const selectedCenter = getConnectionPoint(selectedNode, 'output');
-    const defaultOffset = 150; // Distance from selected node's output
-    const defaultX = selectedCenter.x + defaultOffset;
-    const defaultY = selectedCenter.y - 25; // Adjust position
+    // Use the provided x and y coordinates
+    const defaultX = x;
+    const defaultY = y;
 
     // Create node group
     const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -111,22 +111,24 @@ export function handleAddNode(
     // Add to nodes array
     nodes.push({ id: newNodeId, el: nodeGroup });
 
-    // Create connector from selected node to new node
-    const connectorId = `connector-${selectedNode.getAttribute('data-node-id')}-${newNodeId}`;
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('id', connectorId);
-    path.setAttribute('class', connectorType === 'solid' ? 'connector-solid' : 'connector-dashed');
-    svg.insertBefore(path, svg.querySelector('.draggable-group')); // Insert before the first node group
+    // If there's a selected node, create a connector from it
+    if (selectedNode) {
+        const connectorId = `connector-${selectedNode.getAttribute('data-node-id')}-${newNodeId}`;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('id', connectorId);
+        path.setAttribute('class', connectorType === 'solid' ? 'connector-solid' : 'connector-dashed');
+        svg.insertBefore(path, svg.querySelector('.draggable-group'));
 
-    connectors.push({
-        id: connectorId,
-        from: selectedNode.getAttribute('data-node-id'),
-        to: newNodeId,
-        el: path,
-        type: connectorType
-    });
+        connectors.push({
+            id: connectorId,
+            from: selectedNode.getAttribute('data-node-id'),
+            to: newNodeId,
+            el: path,
+            type: connectorType
+        });
 
-    updateConnectors(currentConnectorShape);
+        updateConnectors(currentConnectorShape);
+    }
 
     return { 
         success: true, 

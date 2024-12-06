@@ -58,6 +58,13 @@ export function setupWindowClickHandler(
     };
 }
 
+// Function to set up settings button event listener
+export function setupSettingsButtonListener(settingsBtn, settingsModal) {
+    settingsBtn.addEventListener('click', () => {
+        settingsModal.style.display = 'block';
+    });
+}
+
 // Function to initialize connection points for existing nodes
 export function initializeConnectionPoints(nodes) {
     nodes.forEach(node => {

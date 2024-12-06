@@ -23,12 +23,13 @@ import {
 import {
     setupModalCloseListeners,
     setupWindowClickHandler,
+    setupSettingsButtonListener,
     initializeConnectionPoints
 } from './flowchart-event-handlers.js';
 
 const svg = document.getElementById('flowchart');
-const addNodeBtn = document.getElementById('add-node-btn');
-const removeNodeBtn = document.getElementById('remove-node-btn');
+// const addNodeBtn = document.getElementById('add-node-btn'); // remove or comment out
+// const removeNodeBtn = document.getElementById('remove-node-btn'); // remove or comment out
 const settingsBtn = document.getElementById('settings-btn');
 
 // Modal Elements
@@ -48,16 +49,26 @@ const settingsCancel = document.getElementById('settings-cancel');
 const settingsForm = document.getElementById('settings-form');
 const connectorShapeSelect = document.getElementById('connector-shape');
 
+// Context menu elements
+const contextMenu = document.getElementById('context-menu');
+const contextAddNode = document.getElementById('context-add-node');
+const contextRemoveNode = document.getElementById('context-remove-node');
+
 let nodeCounter = 4; // To generate unique node IDs
 let selectedNode = null; // Track the currently selected node
 
 // Global setting for connector shape
 let currentConnectorShape = 'elbow'; // Default shape
 
+// Keep track of right-click position and what was clicked
+let rightClickX = 0;
+let rightClickY = 0;
+let rightClickedNode = null; // The node that was right-clicked (if any)
+
 // Modify selectNode to update the local selectedNode
 function updateSelectedNode(nodeEl) {
     selectedNode = nodeEl;
-    selectNode(nodeEl, removeNodeBtn);
+    selectNode(nodeEl, {disabled: true}); // Pass a dummy object since removeNodeBtn no longer used
 }
 
 // Set up modal close listeners
@@ -80,32 +91,58 @@ setupWindowClickHandler(
     settingsModal
 );
 
-// Event listener for adding a new node
-addNodeBtn.addEventListener('click', () => {
-    if (!selectedNode) {
-        alert('Please select a node to connect the new node.');
-        return;
+// Set up settings button listener
+setupSettingsButtonListener(settingsBtn, settingsModal);
+
+// Handle right-click (contextmenu) event on the SVG
+svg.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+
+    // Determine if we right-clicked on a node
+    const nodeGroup = e.target.closest('.draggable-group');
+    rightClickedNode = nodeGroup || null;
+    updateSelectedNode(rightClickedNode);
+
+    // Get mouse position relative to the SVG container
+    const svgRect = svg.getBoundingClientRect();
+    rightClickX = e.clientX - svgRect.left;
+    rightClickY = e.clientY - svgRect.top;
+
+    // Position the context menu
+    contextMenu.style.left = `${e.clientX}px`;
+    contextMenu.style.top = `${e.clientY}px`;
+
+    // Show/hide "Remove Node" based on whether a node is selected
+    if (rightClickedNode) {
+        contextRemoveNode.style.display = 'block';
+    } else {
+        contextRemoveNode.style.display = 'none';
     }
-    // Open the Add Node Modal
+
+    // Display the context menu
+    contextMenu.style.display = 'block';
+});
+
+// Hide context menu on click anywhere else
+document.addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+});
+
+// "Add Node" context menu item click handler
+contextAddNode.addEventListener('click', () => {
+    // Show Add Node modal
     addNodeModal.style.display = 'block';
     addNodeForm.reset();
 });
 
-// Event listener for removing the selected node
-removeNodeBtn.addEventListener('click', () => {
+// "Remove Node" context menu item click handler
+contextRemoveNode.addEventListener('click', () => {
     if (!selectedNode) {
         alert('Please select a node to remove.');
         return;
     }
     // Open the Remove Node Modal
     removeNodeModal.style.display = 'block';
-});
-
-// Event listener for opening the Settings Modal
-settingsBtn.addEventListener('click', () => {
-    // Set the current selection in the dropdown
-    connectorShapeSelect.value = currentConnectorShape;
-    settingsModal.style.display = 'block';
 });
 
 // Handle Add Node Form Submission
@@ -116,7 +153,9 @@ addNodeForm.addEventListener('submit', (e) => {
         svg, 
         nodeCounter, 
         currentConnectorShape, 
-        updateSelectedNode
+        updateSelectedNode,
+        rightClickX,   // pass in stored right-click coordinates
+        rightClickY
     );
 
     if (result.success) {
@@ -130,7 +169,7 @@ confirmRemoveBtn.addEventListener('click', () => {
     const success = handleRemoveNode(
         selectedNode, 
         svg, 
-        removeNodeBtn, 
+        {disabled: true}, 
         currentConnectorShape
     );
 
@@ -161,7 +200,7 @@ svg.addEventListener('mousedown', (e) => {
     if (nodeGroup) {
         updateSelectedNode(nodeGroup);
     }
-    onMouseDown(e, svg, removeNodeBtn, currentConnectorShape);
+    onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
 });
 
 // Initial draw of connectors

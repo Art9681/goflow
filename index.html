@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-<!-- Previous head content remains the same until the style section -->
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,8 +11,6 @@
   <!-- Vertical Menu on the Left -->
   <div id="menu">
     <h2>Flowchart Menu</h2>
-    <button id="add-node-btn">Add Node</button>
-    <button id="remove-node-btn" disabled>Remove Node</button>
     <button id="settings-btn">Settings</button>
   </div>
 
@@ -133,6 +129,12 @@
       </form>
     </div>
   </div>
+
+  <!-- Context Menu -->
+  <ul id="context-menu">
+    <li id="context-add-node">Add Node</li>
+    <li id="context-remove-node">Remove Node</li>
+  </ul>
 
   <script type="module" src="js/flowchart.js"></script>
 </body>
