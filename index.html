@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Interactive Flowchart with Modals</title>
+  <title>Interactive Flowchart with Connection Points and Modals</title>
   <style>
     body {
       margin: 0;
@@ -87,6 +87,22 @@
       pointer-events: none;
       user-select: none;
       fill: #333;
+    }
+
+    /* Connection Points Styling */
+    .connection-point {
+      fill: #3498db;
+      stroke: #2980b9;
+      stroke-width: 1.5;
+      cursor: pointer;
+    }
+
+    .connection-point.input {
+      /* Additional styles if needed */
+    }
+
+    .connection-point.output {
+      /* Additional styles if needed */
     }
 
     /* Connector Styling */
@@ -203,18 +219,27 @@
       <g class="draggable-group" data-node-id="A">
         <rect class="node" x="150" y="100" width="100" height="50"></rect>
         <text class="node-text" x="200" y="130" text-anchor="middle" alignment-baseline="middle">Node A</text>
+        <!-- Connection Points -->
+        <circle class="connection-point input" cx="150" cy="125" r="5"></circle>
+        <circle class="connection-point output" cx="250" cy="125" r="5"></circle>
       </g>
 
       <!-- Node B -->
       <g class="draggable-group" data-node-id="B">
         <rect class="node" x="350" y="200" width="100" height="50"></rect>
         <text class="node-text" x="400" y="230" text-anchor="middle" alignment-baseline="middle">Node B</text>
+        <!-- Connection Points -->
+        <circle class="connection-point input" cx="350" cy="225" r="5"></circle>
+        <circle class="connection-point output" cx="450" cy="225" r="5"></circle>
       </g>
 
       <!-- Node C -->
       <g class="draggable-group" data-node-id="C">
         <rect class="node" x="550" y="100" width="100" height="50"></rect>
         <text class="node-text" x="600" y="130" text-anchor="middle" alignment-baseline="middle">Node C</text>
+        <!-- Connection Points -->
+        <circle class="connection-point input" cx="550" cy="125" r="5"></circle>
+        <circle class="connection-point output" cx="650" cy="125" r="5"></circle>
       </g>
 
       <!-- Initial Connectors -->
@@ -259,7 +284,7 @@
   </div>
 
   <script>
-    // Enhanced Flowchart with Add/Delete Modals
+    // Enhanced Flowchart with Connection Points and Modals
 
     const svg = document.getElementById('flowchart');
     const addNodeBtn = document.getElementById('add-node-btn');
@@ -293,12 +318,20 @@
     let offsetY = 0;
     let nodeCounter = 4; // To generate unique node IDs
 
-    // Utility function to get node center
-    function getNodeCenter(node) {
+    // Utility function to get connection point position
+    function getConnectionPoint(node, type) {
       const rect = node.el.querySelector('rect');
-      const x = parseFloat(rect.getAttribute('x')) + parseFloat(rect.getAttribute('width')) / 2;
-      const y = parseFloat(rect.getAttribute('y')) + parseFloat(rect.getAttribute('height')) / 2;
-      return { x, y };
+      const x = parseFloat(rect.getAttribute('x'));
+      const y = parseFloat(rect.getAttribute('y'));
+      const width = parseFloat(rect.getAttribute('width'));
+      const height = parseFloat(rect.getAttribute('height'));
+
+      if (type === 'input') {
+        return { x: x, y: y + height / 2 };
+      } else if (type === 'output') {
+        return { x: x + width, y: y + height / 2 };
+      }
+      return { x: x + width / 2, y: y + height / 2 };
     }
 
     // Function to update all connectors
@@ -308,8 +341,8 @@
         const toNode = nodes.find(n => n.id === conn.to);
         if (!fromNode || !toNode) return;
 
-        const start = getNodeCenter(fromNode);
-        const end = getNodeCenter(toNode);
+        const start = getConnectionPoint(fromNode, 'output');
+        const end = getConnectionPoint(toNode, 'input');
 
         // Create an L-shaped path
         const midX = (start.x + end.x) / 2;
@@ -372,6 +405,14 @@
         // Update text position accordingly
         text.setAttribute('x', newX + width / 2);
         text.setAttribute('y', newY + height / 2 + 5); // +5 for vertical alignment
+
+        // Update connection points positions
+        const inputPoint = selectedNode.querySelector('.connection-point.input');
+        const outputPoint = selectedNode.querySelector('.connection-point.output');
+        inputPoint.setAttribute('cx', newX);
+        inputPoint.setAttribute('cy', newY + height / 2);
+        outputPoint.setAttribute('cx', newX + width);
+        outputPoint.setAttribute('cy', newY + height / 2);
 
         updateConnectors();
       }
@@ -436,10 +477,10 @@
       nodeCounter++;
 
       // Define position relative to selected node
-      const selectedCenter = getNodeCenter({ el: selectedNode });
-      const defaultOffset = 150; // Distance from selected node
+      const selectedCenter = getConnectionPoint({ el: selectedNode }, 'output');
+      const defaultOffset = 150; // Distance from selected node's output
       const defaultX = selectedCenter.x + defaultOffset;
-      const defaultY = selectedCenter.y;
+      const defaultY = selectedCenter.y - 25; // Adjust to align vertically
 
       // Create node group
       const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -463,8 +504,23 @@
       text.setAttribute('alignment-baseline', 'middle');
       text.textContent = nodeLabel;
 
+      // Create connection points
+      const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      inputPoint.setAttribute('class', 'connection-point input');
+      inputPoint.setAttribute('cx', defaultX);
+      inputPoint.setAttribute('cy', defaultY + 25);
+      inputPoint.setAttribute('r', '5');
+
+      const outputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      outputPoint.setAttribute('class', 'connection-point output');
+      outputPoint.setAttribute('cx', defaultX + 100);
+      outputPoint.setAttribute('cy', defaultY + 25);
+      outputPoint.setAttribute('r', '5');
+
       nodeGroup.appendChild(rect);
       nodeGroup.appendChild(text);
+      nodeGroup.appendChild(inputPoint);
+      nodeGroup.appendChild(outputPoint);
       svg.appendChild(nodeGroup);
 
       // Add to nodes array
@@ -543,6 +599,22 @@
 
     // Initial draw of connectors
     updateConnectors();
+
+    // Initialize connection points positions for existing nodes
+    nodes.forEach(node => {
+      const inputPoint = node.el.querySelector('.connection-point.input');
+      const outputPoint = node.el.querySelector('.connection-point.output');
+      const rect = node.el.querySelector('rect');
+      const x = parseFloat(rect.getAttribute('x'));
+      const y = parseFloat(rect.getAttribute('y'));
+      const width = parseFloat(rect.getAttribute('width'));
+      const height = parseFloat(rect.getAttribute('height'));
+
+      inputPoint.setAttribute('cx', x);
+      inputPoint.setAttribute('cy', y + height / 2);
+      outputPoint.setAttribute('cx', x + width);
+      outputPoint.setAttribute('cy', y + height / 2);
+    });
 
     // Initial Unit Tests (Run in console as a basic check)
     function runTests() {
