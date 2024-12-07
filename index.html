@@ -18,49 +18,8 @@
   <!-- SVG Container -->
   <div id="svg-container">
     <svg id="flowchart">
-      <!-- Initial Connectors -->
-      <!-- Connector from A to B (solid) -->
-      <path class="connector-solid" id="connector-A-B"></path>
-
-      <!-- Connector from B to C (dashed) -->
-      <path class="connector-dashed" id="connector-B-C"></path>
-
-      <!-- Initial Nodes -->
-      <!-- Node A -->
-      <g class="draggable-group" data-node-id="A">
-        <rect class="node" x="150" y="100" width="100" height="50"></rect>
-        <text class="node-text" x="200" y="130" text-anchor="middle" alignment-baseline="middle">Node A</text>
-        <!-- Connection Points -->
-        <circle class="connection-point input" cx="150" cy="125" r="5"></circle>
-        <circle class="connection-point output" cx="250" cy="125" r="5"></circle>
-        <!-- Connector Type Labels -->
-        <text class="type-label" x="150" y="120" text-anchor="middle">String</text>
-        <text class="type-label" x="250" y="120" text-anchor="middle">Int</text>
-      </g>
-
-      <!-- Node B -->
-      <g class="draggable-group" data-node-id="B">
-        <rect class="node" x="350" y="200" width="100" height="50"></rect>
-        <text class="node-text" x="400" y="230" text-anchor="middle" alignment-baseline="middle">Node B</text>
-        <!-- Connection Points -->
-        <circle class="connection-point input" cx="350" cy="225" r="5"></circle>
-        <circle class="connection-point output" cx="450" cy="225" r="5"></circle>
-        <!-- Connector Type Labels -->
-        <text class="type-label" x="350" y="220" text-anchor="middle">Int</text>
-        <text class="type-label" x="450" y="220" text-anchor="middle">Float</text>
-      </g>
-
-      <!-- Node C -->
-      <g class="draggable-group" data-node-id="C">
-        <rect class="node" x="550" y="100" width="100" height="50"></rect>
-        <text class="node-text" x="600" y="130" text-anchor="middle" alignment-baseline="middle">Node C</text>
-        <!-- Connection Points -->
-        <circle class="connection-point input" cx="550" cy="125" r="5"></circle>
-        <circle class="connection-point output" cx="650" cy="125" r="5"></circle>
-        <!-- Connector Type Labels -->
-        <text class="type-label" x="550" y="120" text-anchor="middle">Float</text>
-        <text class="type-label" x="650" y="120" text-anchor="middle">String</text>
-      </g>
+      <g id="connectors-layer"></g>
+      <g id="nodes-layer"></g>
     </svg>
   </div>
 

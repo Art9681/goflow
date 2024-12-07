@@ -1,16 +1,8 @@
 // Utility Functions and Data Structures for Flowchart
 
-// Data structures to manage nodes and connectors
-const nodes = [
-    { id: 'A', el: document.querySelector('[data-node-id="A"]') },
-    { id: 'B', el: document.querySelector('[data-node-id="B"]') },
-    { id: 'C', el: document.querySelector('[data-node-id="C"]') }
-];
-
-const connectors = [
-    { id: 'connector-A-B', from: 'A', to: 'B', el: document.getElementById('connector-A-B'), type: 'solid' },
-    { id: 'connector-B-C', from: 'B', to: 'C', el: document.getElementById('connector-B-C'), type: 'dashed' }
-];
+// Start with empty arrays; will be populated after loading JSON
+const nodes = [];
+const connectors = [];
 
 // Utility function to get connection point position
 function getConnectionPoint(node, type) {

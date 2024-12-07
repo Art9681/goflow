@@ -1,9 +1,9 @@
-// Enhanced Flowchart with typed inputs/outputs, Modals, and Settings
 import { 
     nodes, 
     connectors, 
     updateConnectors, 
-    runTests 
+    runTests,
+    capitalizeFirstLetter
 } from './flowchart-utils.js';
 
 import { 
@@ -14,7 +14,6 @@ import {
 } from './flowchart-drag-handlers.js';
 
 import {
-    capitalizeFirstLetter,
     handleAddNode,
     handleRemoveNode,
     handleSettingsChange
@@ -28,8 +27,8 @@ import {
 } from './flowchart-event-handlers.js';
 
 const svg = document.getElementById('flowchart');
-// const addNodeBtn = document.getElementById('add-node-btn'); // remove or comment out
-// const removeNodeBtn = document.getElementById('remove-node-btn'); // remove or comment out
+const connectorsLayer = document.getElementById('connectors-layer');
+const nodesLayer = document.getElementById('nodes-layer');
 const settingsBtn = document.getElementById('settings-btn');
 
 // Modal Elements
@@ -54,24 +53,120 @@ const contextMenu = document.getElementById('context-menu');
 const contextAddNode = document.getElementById('context-add-node');
 const contextRemoveNode = document.getElementById('context-remove-node');
 
-let nodeCounter = 4; // To generate unique node IDs
-let selectedNode = null; // Track the currently selected node
+let nodeCounter = 1; // will increment as we add nodes
+let selectedNode = null; 
+let currentConnectorShape = 'elbow';
 
-// Global setting for connector shape
-let currentConnectorShape = 'elbow'; // Default shape
-
-// Keep track of right-click position and what was clicked
+// Track right-click info
 let rightClickX = 0;
 let rightClickY = 0;
-let rightClickedNode = null; // The node that was right-clicked (if any)
+let rightClickedNode = null;
 
-// Modify selectNode to update the local selectedNode
-function updateSelectedNode(nodeEl) {
-    selectedNode = nodeEl;
-    selectNode(nodeEl, {disabled: true}); // Pass a dummy object since removeNodeBtn no longer used
+// A JSON definition of initial nodes and connectors
+const initialData = {
+    "nodes": [
+       { "id": "A", "x": 150, "y": 100, "width": 100, "height": 50, "label": "Node A", "inputType": "string", "outputType": "int" },
+       { "id": "B", "x": 350, "y": 200, "width": 100, "height": 50, "label": "Node B", "inputType": "int", "outputType": "float" },
+       { "id": "C", "x": 550, "y": 100, "width": 100, "height": 50, "label": "Node C", "inputType": "float", "outputType": "string" }
+    ],
+    "connectors": [
+       { "id": "connector-A-B", "from": "A", "to": "B", "type": "solid" },
+       { "id": "connector-B-C", "from": "B", "to": "C", "type": "dashed" }
+    ]
+};
+
+// A function to initialize the diagram from JSON data
+function initializeDiagramFromJSON(data) {
+    // Create nodes
+    data.nodes.forEach(n => {
+        const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        nodeGroup.setAttribute('class', 'draggable-group');
+        nodeGroup.setAttribute('data-node-id', n.id);
+
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('class', 'node');
+        rect.setAttribute('x', n.x);
+        rect.setAttribute('y', n.y);
+        rect.setAttribute('width', n.width);
+        rect.setAttribute('height', n.height);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('class', 'node-text');
+        text.setAttribute('x', n.x + n.width / 2);
+        text.setAttribute('y', n.y + n.height / 2 + 5);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('alignment-baseline', 'middle');
+        text.textContent = n.label;
+
+        // Input/Output points
+        const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        inputPoint.setAttribute('class', 'connection-point input');
+        inputPoint.setAttribute('cx', n.x);
+        inputPoint.setAttribute('cy', n.y + n.height/2);
+        inputPoint.setAttribute('r', '5');
+
+        const outputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        outputPoint.setAttribute('class', 'connection-point output');
+        outputPoint.setAttribute('cx', n.x + n.width);
+        outputPoint.setAttribute('cy', n.y + n.height/2);
+        outputPoint.setAttribute('r', '5');
+
+        // Type labels
+        const inputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        inputLabel.setAttribute('class', 'type-label');
+        inputLabel.setAttribute('x', n.x);
+        inputLabel.setAttribute('y', n.y + n.height/2 - 10);
+        inputLabel.setAttribute('text-anchor', 'middle');
+        inputLabel.textContent = capitalizeFirstLetter(n.inputType);
+
+        const outputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        outputLabel.setAttribute('class', 'type-label');
+        outputLabel.setAttribute('x', n.x + n.width);
+        outputLabel.setAttribute('y', n.y + n.height/2 - 10);
+        outputLabel.setAttribute('text-anchor', 'middle');
+        outputLabel.textContent = capitalizeFirstLetter(n.outputType);
+
+        nodeGroup.appendChild(rect);
+        nodeGroup.appendChild(text);
+        nodeGroup.appendChild(inputPoint);
+        nodeGroup.appendChild(outputPoint);
+        nodeGroup.appendChild(inputLabel);
+        nodeGroup.appendChild(outputLabel);
+
+        nodesLayer.appendChild(nodeGroup);
+        nodes.push({ id: n.id, el: nodeGroup });
+
+        // Update nodeCounter to ensure unique IDs for newly added nodes
+        const numericPart = parseInt(n.id.replace(/\D+/g,''), 10);
+        if (!isNaN(numericPart) && numericPart >= nodeCounter) {
+            nodeCounter = numericPart + 1;
+        }
+    });
+
+    // Create connectors
+    data.connectors.forEach(c => {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('id', c.id);
+        path.setAttribute('class', c.type === 'solid' ? 'connector-solid' : 'connector-dashed');
+        connectorsLayer.appendChild(path);
+
+        connectors.push({
+            id: c.id,
+            from: c.from,
+            to: c.to,
+            el: path,
+            type: c.type
+        });
+    });
+
+    // Update all connectors
+    updateConnectors(currentConnectorShape);
+
+    // Initialize connection points
+    initializeConnectionPoints(nodes);
 }
 
-// Set up modal close listeners
+// Set up modal and event handlers as before
 setupModalCloseListeners(
     addNodeModal, 
     addNodeClose, 
@@ -84,68 +179,54 @@ setupModalCloseListeners(
     settingsCancel
 );
 
-// Set up window click handler for closing modals
 setupWindowClickHandler(
     addNodeModal, 
     removeNodeModal, 
     settingsModal
 );
 
-// Set up settings button listener
 setupSettingsButtonListener(settingsBtn, settingsModal);
 
-// Handle right-click (contextmenu) event on the SVG
+// Right-click menu logic remains the same
 svg.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-
-    // Determine if we right-clicked on a node
     const nodeGroup = e.target.closest('.draggable-group');
     rightClickedNode = nodeGroup || null;
     updateSelectedNode(rightClickedNode);
 
-    // Get mouse position relative to the SVG container
     const svgRect = svg.getBoundingClientRect();
     rightClickX = e.clientX - svgRect.left;
     rightClickY = e.clientY - svgRect.top;
 
-    // Position the context menu
     contextMenu.style.left = `${e.clientX}px`;
     contextMenu.style.top = `${e.clientY}px`;
 
-    // Show/hide "Remove Node" based on whether a node is selected
     if (rightClickedNode) {
         contextRemoveNode.style.display = 'block';
     } else {
         contextRemoveNode.style.display = 'none';
     }
 
-    // Display the context menu
     contextMenu.style.display = 'block';
 });
 
-// Hide context menu on click anywhere else
 document.addEventListener('click', () => {
     contextMenu.style.display = 'none';
 });
 
-// "Add Node" context menu item click handler
 contextAddNode.addEventListener('click', () => {
-    // Show Add Node modal
     addNodeModal.style.display = 'block';
     addNodeForm.reset();
 });
 
-// "Remove Node" context menu item click handler
 contextRemoveNode.addEventListener('click', () => {
     if (!selectedNode) {
         alert('Please select a node to remove.');
         return;
     }
-    // Open the Remove Node Modal
     removeNodeModal.style.display = 'block';
 });
 
-// Handle Add Node Form Submission
 addNodeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const result = handleAddNode(
@@ -154,7 +235,7 @@ addNodeForm.addEventListener('submit', (e) => {
         nodeCounter, 
         currentConnectorShape, 
         updateSelectedNode,
-        rightClickX,   // pass in stored right-click coordinates
+        rightClickX,
         rightClickY
     );
 
@@ -164,7 +245,6 @@ addNodeForm.addEventListener('submit', (e) => {
     }
 });
 
-// Handle Remove Node Confirmation
 confirmRemoveBtn.addEventListener('click', () => {
     const success = handleRemoveNode(
         selectedNode, 
@@ -179,22 +259,16 @@ confirmRemoveBtn.addEventListener('click', () => {
     }
 });
 
-// Handle Settings Form Submission
 settingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
     currentConnectorShape = handleSettingsChange(
         connectorShapeSelect, 
         currentConnectorShape
     );
-
-    // Update all existing connectors
     updateConnectors(currentConnectorShape);
-
-    // Close the modal
     settingsModal.style.display = 'none';
 });
 
-// Event listeners for dragging
 svg.addEventListener('mousedown', (e) => {
     const nodeGroup = e.target.closest('.draggable-group');
     if (nodeGroup) {
@@ -203,11 +277,15 @@ svg.addEventListener('mousedown', (e) => {
     onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
 });
 
-// Initial draw of connectors
-updateConnectors(currentConnectorShape);
+// Initialize the diagram from JSON when page loads
+document.addEventListener('DOMContentLoaded', () => {
+    initializeDiagramFromJSON(initialData);
+    // Run initial tests after everything is loaded
+    runTests();
+});
 
-// Initialize connection points positions for existing nodes
-initializeConnectionPoints(nodes);
-
-// Run initial tests
-runTests();
+// Function to update local selectedNode reference
+function updateSelectedNode(nodeEl) {
+    selectedNode = nodeEl;
+    selectNode(nodeEl, {disabled: true});
+}
