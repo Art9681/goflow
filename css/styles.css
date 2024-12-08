@@ -222,13 +222,19 @@ svg {
 }
 
 .modal input[type="text"],
-.modal select {
+.modal select,
+.modal textarea {
     padding: 8px;
     font-size: 14px;
     border: 1px solid var(--node-border);
     border-radius: 4px;
     background: var(--node-bg);
     color: var(--text-primary);
+}
+
+.modal textarea {
+    height: 150px;
+    resize: vertical;
 }
 
 .modal button {

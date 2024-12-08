@@ -1,13 +1,16 @@
 // flowchart.js
 // Main entry point that initializes the diagram, sets up event listeners,
-// context menu, and handles adding/removing nodes and changing settings.
+// context menu, and handles adding/removing nodes, changing settings,
+// and now importing/exporting diagrams as JSON.
 
 import { 
     nodes, 
     connectors, 
     updateConnectors, 
     runTests,
-    capitalizeFirstLetter
+    capitalizeFirstLetter,
+    exportDiagramToJSON,
+    clearDiagram
 } from './flowchart-utils.js';
 
 import { 
@@ -50,6 +53,21 @@ const settingsCancel = document.getElementById('settings-cancel');
 const settingsForm = document.getElementById('settings-form');
 const connectorShapeSelect = document.getElementById('connector-shape');
 
+// Import/Export Elements
+const importBtn = document.getElementById('import-btn');
+const exportBtn = document.getElementById('export-btn');
+
+const importModal = document.getElementById('import-modal');
+const importClose = document.getElementById('import-close');
+const importCancel = document.getElementById('import-cancel');
+const confirmImportBtn = document.getElementById('confirm-import-btn');
+const importTextarea = document.getElementById('import-textarea');
+
+const exportModal = document.getElementById('export-modal');
+const exportClose = document.getElementById('export-close');
+const exportCancel = document.getElementById('export-cancel');
+const exportTextarea = document.getElementById('export-textarea');
+
 // Context menu elements
 const contextMenu = document.getElementById('context-menu');
 const contextAddNode = document.getElementById('context-add-node');
@@ -87,11 +105,14 @@ const initialData = {
 };
 
 /**
- * Initialize the diagram from JSON data (for example, default_diagram.js data).
- * Creates nodes and connectors, sets nodeCounter appropriately, updates connectors.
+ * Initialize the diagram from JSON data.
+ * Clears the current diagram and creates nodes and connectors, updates connectors.
  * @param {Object} data - JSON object with 'nodes' and 'connectors'.
  */
 function initializeDiagramFromJSON(data) {
+    // Clear existing diagram using the updated clearDiagram function
+    clearDiagram(svg);
+
     // Create nodes
     data.nodes.forEach(n => {
         const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -148,6 +169,7 @@ function initializeDiagramFromJSON(data) {
         nodeGroup.appendChild(inputLabel);
         nodeGroup.appendChild(outputLabel);
 
+        // Append the nodeGroup to nodesLayer
         nodesLayer.appendChild(nodeGroup);
         nodes.push({ id: n.id, el: nodeGroup });
 
@@ -181,6 +203,36 @@ function initializeDiagramFromJSON(data) {
     initializeConnectionPoints(nodes);
 }
 
+/**
+ * Import a diagram from a JSON string.
+ * Clears the current diagram and loads the new one.
+ * Provides more detailed error messages if JSON is invalid.
+ * @param {string} jsonString
+ */
+function importDiagramFromJSON(jsonString) {
+    const trimmed = jsonString.trim();
+    if (!trimmed) {
+        alert('No JSON provided.');
+        return;
+    }
+
+    let data;
+    try {
+        data = JSON.parse(trimmed);
+    } catch (e) {
+        console.error('JSON parse error:', e);
+        alert('Invalid JSON string. Please check the console for details.');
+        return;
+    }
+
+    if (!data.nodes || !data.connectors || !Array.isArray(data.nodes) || !Array.isArray(data.connectors)) {
+        alert('Invalid JSON format. Must contain "nodes" and "connectors" arrays.');
+        return;
+    }
+
+    initializeDiagramFromJSON(data);
+}
+
 // Setup modal close listeners and other global handlers
 setupModalCloseListeners(
     addNodeModal, 
@@ -191,13 +243,21 @@ setupModalCloseListeners(
     removeNodeCancel,
     settingsModal, 
     settingsClose, 
-    settingsCancel
+    settingsCancel,
+    importModal,
+    importClose,
+    importCancel,
+    exportModal,
+    exportClose,
+    exportCancel
 );
 
 setupWindowClickHandler(
     addNodeModal, 
     removeNodeModal, 
-    settingsModal
+    settingsModal,
+    importModal,
+    exportModal
 );
 
 setupSettingsButtonListener(settingsBtn, settingsModal);
@@ -294,6 +354,24 @@ svg.addEventListener('mousedown', (e) => {
         updateSelectedNode(nodeGroup);
     }
     onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
+});
+
+// Import/Export button handlers
+importBtn.addEventListener('click', () => {
+    importModal.style.display = 'block';
+    importTextarea.value = '';
+});
+
+exportBtn.addEventListener('click', () => {
+    const jsonData = exportDiagramToJSON();
+    exportTextarea.value = JSON.stringify(jsonData, null, 2);
+    exportModal.style.display = 'block';
+});
+
+confirmImportBtn.addEventListener('click', () => {
+    const jsonString = importTextarea.value;
+    importDiagramFromJSON(jsonString);
+    importModal.style.display = 'none';
 });
 
 // Initialize the diagram from the provided initial data after DOM is loaded

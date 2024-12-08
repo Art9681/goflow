@@ -80,10 +80,82 @@ function updateConnectors(currentConnectorShape) {
 }
 
 /**
+ * Convert the current nodes and connectors into a JSON object
+ * suitable for exporting.
+ * @returns {Object} JSON representation of the diagram
+ */
+function exportDiagramToJSON() {
+    const nodeData = nodes.map(n => {
+        const rect = n.el.querySelector('rect');
+        const text = n.el.querySelector('.node-text');
+        const labels = n.el.querySelectorAll('.type-label');
+        
+        let inputType = 'none';
+        let outputType = 'none';
+        if (labels.length > 0) {
+            // input label is first
+            inputType = labels[0].textContent.toLowerCase();
+            // output label is second
+            if (labels.length > 1) {
+                outputType = labels[1].textContent.toLowerCase();
+            }
+        }
+
+        return {
+            id: n.id,
+            x: parseFloat(rect.getAttribute('x')),
+            y: parseFloat(rect.getAttribute('y')),
+            width: parseFloat(rect.getAttribute('width')),
+            height: parseFloat(rect.getAttribute('height')),
+            label: text.textContent,
+            inputType: inputType,
+            outputType: outputType
+        };
+    });
+
+    const connectorData = connectors.map(c => ({
+        id: c.id,
+        from: c.from,
+        to: c.to,
+        type: c.type
+    }));
+
+    return {
+        nodes: nodeData,
+        connectors: connectorData
+    };
+}
+
+/**
+ * Clears the current diagram (removes nodes and connectors from their respective layers and arrays).
+ * @param {SVGElement} svg - The main SVG element.
+ */
+function clearDiagram(svg) {
+    // Get references to layers for removing children
+    const nodesLayer = svg.querySelector('#nodes-layer');
+    const connectorsLayer = svg.querySelector('#connectors-layer');
+
+    // Remove all node elements from nodes-layer
+    nodes.forEach(n => {
+        if (nodesLayer.contains(n.el)) {
+            nodesLayer.removeChild(n.el);
+        }
+    });
+    nodes.length = 0;
+
+    // Remove all connector elements from connectors-layer
+    connectors.forEach(c => {
+        if (connectorsLayer.contains(c.el)) {
+            connectorsLayer.removeChild(c.el);
+        }
+    });
+    connectors.length = 0;
+}
+
+/**
  * Initial unit tests to verify basic setup.
  */
 function runTests() {
-    // The tests here assume that after initialization, we have 3 nodes and 2 connectors.
     console.assert(nodes.length === 3, 'Should have 3 nodes initially');
     console.assert(connectors.length === 2, 'Should have 2 connectors initially');
     console.assert(document.querySelector('[data-node-id="A"]'), 'Node A should exist');
@@ -101,5 +173,7 @@ export {
     getConnectorPath, 
     capitalizeFirstLetter, 
     updateConnectors, 
-    runTests 
+    runTests,
+    exportDiagramToJSON,
+    clearDiagram
 };

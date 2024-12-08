@@ -12,7 +12,13 @@
  * @param {HTMLElement} removeNodeCancel 
  * @param {HTMLElement} settingsModal 
  * @param {HTMLElement} settingsClose 
- * @param {HTMLElement} settingsCancel 
+ * @param {HTMLElement} settingsCancel
+ * @param {HTMLElement} importModal - Import modal element
+ * @param {HTMLElement} importClose - Close (x) span for import modal
+ * @param {HTMLElement} importCancel - Cancel button in import modal
+ * @param {HTMLElement} exportModal - Export modal element
+ * @param {HTMLElement} exportClose - Close (x) span for export modal
+ * @param {HTMLElement} exportCancel - Cancel button in export modal
  */
 export function setupModalCloseListeners(
     addNodeModal, 
@@ -23,7 +29,13 @@ export function setupModalCloseListeners(
     removeNodeCancel,
     settingsModal, 
     settingsClose, 
-    settingsCancel
+    settingsCancel,
+    importModal,
+    importClose,
+    importCancel,
+    exportModal,
+    exportClose,
+    exportCancel
 ) {
     // Close modals on close (x)
     addNodeClose.onclick = () => {
@@ -38,6 +50,14 @@ export function setupModalCloseListeners(
         settingsModal.style.display = 'none';
     };
 
+    importClose.onclick = () => {
+        importModal.style.display = 'none';
+    };
+
+    exportClose.onclick = () => {
+        exportModal.style.display = 'none';
+    };
+
     // Close modals on Cancel buttons
     addNodeCancel.onclick = () => {
         addNodeModal.style.display = 'none';
@@ -50,18 +70,30 @@ export function setupModalCloseListeners(
     settingsCancel.onclick = () => {
         settingsModal.style.display = 'none';
     };
+
+    importCancel.onclick = () => {
+        importModal.style.display = 'none';
+    };
+
+    exportCancel.onclick = () => {
+        exportModal.style.display = 'none';
+    };
 }
 
 /**
  * Sets up a global window click handler to close modals if clicking outside them.
  * @param {HTMLElement} addNodeModal 
  * @param {HTMLElement} removeNodeModal 
- * @param {HTMLElement} settingsModal 
+ * @param {HTMLElement} settingsModal
+ * @param {HTMLElement} importModal
+ * @param {HTMLElement} exportModal
  */
 export function setupWindowClickHandler(
     addNodeModal, 
     removeNodeModal, 
-    settingsModal
+    settingsModal,
+    importModal,
+    exportModal
 ) {
     window.onclick = function (event) {
         if (event.target === addNodeModal) {
@@ -72,6 +104,12 @@ export function setupWindowClickHandler(
         }
         if (event.target === settingsModal) {
             settingsModal.style.display = "none";
+        }
+        if (event.target === importModal) {
+            importModal.style.display = "none";
+        }
+        if (event.target === exportModal) {
+            exportModal.style.display = "none";
         }
     };
 }

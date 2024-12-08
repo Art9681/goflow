@@ -120,7 +120,7 @@ export function handleAddNode(
     nodeGroup.appendChild(outputLabel);
 
     // Append node group to SVG
-    svg.appendChild(nodeGroup);
+    svg.querySelector('#nodes-layer').appendChild(nodeGroup);
 
     // Add to nodes array
     nodes.push({ id: newNodeId, el: nodeGroup });
@@ -131,7 +131,7 @@ export function handleAddNode(
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('id', connectorId);
         path.setAttribute('class', connectorType === 'solid' ? 'connector-solid' : 'connector-dashed');
-        svg.insertBefore(path, svg.querySelector('.draggable-group'));
+        svg.querySelector('#connectors-layer').appendChild(path);
 
         connectors.push({
             id: connectorId,
@@ -170,9 +170,13 @@ export function handleRemoveNode(
     }
 
     const nodeId = selectedNode.getAttribute('data-node-id');
+    const nodesLayer = svg.querySelector('#nodes-layer');
+    const connectorsLayer = svg.querySelector('#connectors-layer');
 
-    // Remove from SVG
-    svg.removeChild(selectedNode);
+    // Remove the node from nodesLayer
+    if (nodesLayer.contains(selectedNode)) {
+        nodesLayer.removeChild(selectedNode);
+    }
 
     // Remove from nodes array
     const nodeIndex = nodes.findIndex(n => n.id === nodeId);
@@ -183,7 +187,9 @@ export function handleRemoveNode(
     // Remove associated connectors
     const connectorsToRemove = connectors.filter(conn => conn.from === nodeId || conn.to === nodeId);
     connectorsToRemove.forEach(conn => {
-        svg.removeChild(conn.el);
+        if (connectorsLayer.contains(conn.el)) {
+            connectorsLayer.removeChild(conn.el);
+        }
         const index = connectors.findIndex(c => c.id === conn.id);
         if (index !== -1) connectors.splice(index, 1);
     });
