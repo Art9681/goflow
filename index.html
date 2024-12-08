@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Interactive Flowchart with Connection Points, Modals, Settings, Import/Export</title>
-  <link rel="stylesheet" href="css/styles.css"/>
+  <link rel="stylesheet" href="css/styles.css" />
 </head>
+
 <body>
   <!-- Vertical Menu on the Left -->
   <div id="menu">
@@ -94,10 +96,9 @@
   <!-- Import Diagram Modal -->
   <div id="import-modal" class="modal">
     <div class="modal-content">
-      <span class="close" id="import-close">&times;</span>
+      <span class="close" id="import-close">×</span>
       <h3>Import Diagram</h3>
-      <p>Paste your JSON diagram data below and click "Import".</p>
-      <textarea id="import-textarea" placeholder='{"nodes": [...], "connectors": [...]}'></textarea>
+      <input type="file" id="import-file" accept=".json">
       <button id="confirm-import-btn">Import</button>
       <button type="button" class="cancel-btn" id="import-cancel">Cancel</button>
     </div>
@@ -106,11 +107,12 @@
   <!-- Export Diagram Modal -->
   <div id="export-modal" class="modal">
     <div class="modal-content">
-      <span class="close" id="export-close">&times;</span>
+      <span class="close" id="export-close">×</span>
       <h3>Export Diagram</h3>
-      <p>Copy the JSON data below:</p>
       <textarea id="export-textarea" readonly></textarea>
-      <button type="button" class="cancel-btn" id="export-cancel">Close</button>
+      <a id="export-link" download="flowchart.json"></a>
+      <button id="trigger-export">Export</button>
+      <button type="button" class="cancel-btn" id="export-cancel">Cancel</button>
     </div>
   </div>
 
@@ -123,4 +125,5 @@
   <script type="module" src="js/flowchart.js"></script>
   <script type="module" src="js/theme.js"></script>
 </body>
+
 </html>
