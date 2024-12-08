@@ -1,27 +1,42 @@
-// Modal Interaction Handlers for Flowchart
+// flowchart-modal-handlers.js
+// Handles adding and removing nodes via modals and applying settings changes.
 
 import { 
     nodes, 
     connectors, 
-    getConnectionPoint, 
     updateConnectors 
 } from './flowchart-utils.js';
 
-// Helper function to capitalize first letter
+/**
+ * Capitalize the first letter of a given string.
+ * Special case: if string is 'none', return 'None'.
+ * @param {string} string 
+ * @returns {string}
+ */
 export function capitalizeFirstLetter(string) {
     if (string === 'none') return 'None';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// Function to handle adding a new node
+/**
+ * Handle adding a new node from the modal form data.
+ * @param {SVGGElement|null} selectedNode - The currently selected node (if any) to connect from.
+ * @param {SVGElement} svg - The main SVG element.
+ * @param {number} nodeCounter - Current node counter, will be incremented for new nodes.
+ * @param {string} currentConnectorShape - Current connector shape.
+ * @param {function} updateSelectedNode - Function to update the currently selected node reference.
+ * @param {number} x - The x-coordinate where the new node will be placed.
+ * @param {number} y - The y-coordinate where the new node will be placed.
+ * @returns {{success: boolean, nodeCounter: number}}
+ */
 export function handleAddNode(
     selectedNode, 
     svg, 
     nodeCounter, 
     currentConnectorShape, 
     updateSelectedNode,
-    x,  // new
-    y   // new
+    x,
+    y
 ) {
     const nodeLabel = document.getElementById('node-label').value.trim();
     const connectorType = document.getElementById('connector-type').value;
@@ -34,7 +49,7 @@ export function handleAddNode(
         return { success: false, nodeCounter };
     }
 
-    // Require at least one of input or output type to be something other than 'none'
+    // Require at least one of input or output type
     if (inputType === 'none' && outputType === 'none') {
         alert('At least one of Input or Output type must be selected.');
         return { success: false, nodeCounter };
@@ -43,7 +58,6 @@ export function handleAddNode(
     const newNodeId = `N${nodeCounter}`;
     nodeCounter++;
 
-    // Use the provided x and y coordinates
     const defaultX = x;
     const defaultY = y;
 
@@ -82,7 +96,7 @@ export function handleAddNode(
     outputPoint.setAttribute('cy', defaultY + 25);
     outputPoint.setAttribute('r', '5');
 
-    // Create type labels for input and output
+    // Create type labels
     const inputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     inputLabel.setAttribute('class', 'type-label');
     inputLabel.setAttribute('x', defaultX);
@@ -97,7 +111,7 @@ export function handleAddNode(
     outputLabel.setAttribute('text-anchor', 'middle');
     outputLabel.textContent = capitalizeFirstLetter(outputType);
 
-    // Append node elements
+    // Append all created elements to the node group
     nodeGroup.appendChild(rect);
     nodeGroup.appendChild(text);
     nodeGroup.appendChild(inputPoint);
@@ -111,7 +125,7 @@ export function handleAddNode(
     // Add to nodes array
     nodes.push({ id: newNodeId, el: nodeGroup });
 
-    // If there's a selected node, create a connector from it
+    // If there's a selected node, create a connector from it to the new node
     if (selectedNode) {
         const connectorId = `connector-${selectedNode.getAttribute('data-node-id')}-${newNodeId}`;
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -136,7 +150,14 @@ export function handleAddNode(
     };
 }
 
-// Function to handle removing a node
+/**
+ * Handle removing a node.
+ * @param {SVGGElement|null} selectedNode - The currently selected node to remove.
+ * @param {SVGElement} svg - The main SVG element.
+ * @param {HTMLButtonElement} removeNodeBtn - The remove node button reference.
+ * @param {string} currentConnectorShape - Current connector shape.
+ * @returns {boolean}
+ */
 export function handleRemoveNode(
     selectedNode, 
     svg, 
@@ -145,7 +166,7 @@ export function handleRemoveNode(
 ) {
     if (!selectedNode) {
         alert('No node selected.');
-        return;
+        return false;
     }
 
     const nodeId = selectedNode.getAttribute('data-node-id');
@@ -173,7 +194,12 @@ export function handleRemoveNode(
     return true;
 }
 
-// Function to handle settings changes
+/**
+ * Handle settings changes to connector shape.
+ * @param {HTMLSelectElement} connectorShapeSelect - The select element for connector shapes.
+ * @param {string} currentConnectorShape - Current shape before change.
+ * @returns {string} - New connector shape.
+ */
 export function handleSettingsChange(
     connectorShapeSelect, 
     currentConnectorShape

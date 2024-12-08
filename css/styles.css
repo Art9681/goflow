@@ -1,4 +1,11 @@
-:root {
+/*
+ * styles.css
+ * This file defines both light and dark theme variables, as well as styling
+ * for the flowchart interface including nodes, connectors, menus, modals, and
+ * context menus.
+ */
+
+ :root {
     /* Light theme variables */
     --bg-primary: #f0f0f0;
     --bg-menu: #2c3e50;

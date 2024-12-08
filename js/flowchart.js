@@ -1,3 +1,7 @@
+// flowchart.js
+// Main entry point that initializes the diagram, sets up event listeners,
+// context menu, and handles adding/removing nodes and changing settings.
+
 import { 
     nodes, 
     connectors, 
@@ -8,9 +12,7 @@ import {
 
 import { 
     selectNode, 
-    onMouseDown, 
-    onMouseMove, 
-    onMouseUp 
+    onMouseDown 
 } from './flowchart-drag-handlers.js';
 
 import {
@@ -62,6 +64,15 @@ let rightClickX = 0;
 let rightClickY = 0;
 let rightClickedNode = null;
 
+/** 
+ * Update the currently selected node reference and visually highlight it.
+ * @param {SVGGElement|null} nodeEl 
+ */
+function updateSelectedNode(nodeEl) {
+    selectedNode = nodeEl;
+    selectNode(nodeEl, {disabled: true});
+}
+
 // A JSON definition of initial nodes and connectors
 const initialData = {
     "nodes": [
@@ -75,7 +86,11 @@ const initialData = {
     ]
 };
 
-// A function to initialize the diagram from JSON data
+/**
+ * Initialize the diagram from JSON data (for example, default_diagram.js data).
+ * Creates nodes and connectors, sets nodeCounter appropriately, updates connectors.
+ * @param {Object} data - JSON object with 'nodes' and 'connectors'.
+ */
 function initializeDiagramFromJSON(data) {
     // Create nodes
     data.nodes.forEach(n => {
@@ -166,7 +181,7 @@ function initializeDiagramFromJSON(data) {
     initializeConnectionPoints(nodes);
 }
 
-// Set up modal and event handlers as before
+// Setup modal close listeners and other global handlers
 setupModalCloseListeners(
     addNodeModal, 
     addNodeClose, 
@@ -187,7 +202,7 @@ setupWindowClickHandler(
 
 setupSettingsButtonListener(settingsBtn, settingsModal);
 
-// Right-click menu logic remains the same
+// Right-click context menu logic
 svg.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     const nodeGroup = e.target.closest('.draggable-group');
@@ -227,6 +242,7 @@ contextRemoveNode.addEventListener('click', () => {
     removeNodeModal.style.display = 'block';
 });
 
+// Add node form submission
 addNodeForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const result = handleAddNode(
@@ -245,6 +261,7 @@ addNodeForm.addEventListener('submit', (e) => {
     }
 });
 
+// Confirm remove node
 confirmRemoveBtn.addEventListener('click', () => {
     const success = handleRemoveNode(
         selectedNode, 
@@ -259,6 +276,7 @@ confirmRemoveBtn.addEventListener('click', () => {
     }
 });
 
+// Settings form submission
 settingsForm.addEventListener('submit', (e) => {
     e.preventDefault();
     currentConnectorShape = handleSettingsChange(
@@ -269,6 +287,7 @@ settingsForm.addEventListener('submit', (e) => {
     settingsModal.style.display = 'none';
 });
 
+// Mousedown to potentially drag nodes
 svg.addEventListener('mousedown', (e) => {
     const nodeGroup = e.target.closest('.draggable-group');
     if (nodeGroup) {
@@ -277,15 +296,9 @@ svg.addEventListener('mousedown', (e) => {
     onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
 });
 
-// Initialize the diagram from JSON when page loads
+// Initialize the diagram from the provided initial data after DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initializeDiagramFromJSON(initialData);
-    // Run initial tests after everything is loaded
+    // Run basic tests
     runTests();
 });
-
-// Function to update local selectedNode reference
-function updateSelectedNode(nodeEl) {
-    selectedNode = nodeEl;
-    selectNode(nodeEl, {disabled: true});
-}

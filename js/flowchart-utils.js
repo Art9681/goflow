@@ -1,10 +1,18 @@
-// Utility Functions and Data Structures for Flowchart
+// flowchart-utils.js
+// Provides utility functions and data structures for managing nodes and connectors.
 
-// Start with empty arrays; will be populated after loading JSON
+// Arrays storing nodes and connectors in the diagram
+// Each node: {id: string, el: SVGElement}
+// Each connector: {id: string, from: string, to: string, el: SVGPathElement, type: string}
 const nodes = [];
 const connectors = [];
 
-// Utility function to get connection point position
+/**
+ * Get the connection point coordinates for a node.
+ * @param {SVGGElement} node - The node's group element.
+ * @param {string} type - "input" or "output" to determine which connection point.
+ * @returns {{x: number, y: number}}
+ */
 function getConnectionPoint(node, type) {
     const rect = node.querySelector('rect');
     const x = parseFloat(rect.getAttribute('x'));
@@ -20,7 +28,13 @@ function getConnectionPoint(node, type) {
     return { x: x + width / 2, y: y + height / 2 };
 }
 
-// Function to get connector path based on shape
+/**
+ * Get the path data string for connectors based on the chosen shape.
+ * @param {{x: number, y: number}} start 
+ * @param {{x: number, y: number}} end 
+ * @param {string} shape - 'straight', 'elbow', or 'curved'.
+ * @returns {string} SVG path data
+ */
 function getConnectorPath(start, end, shape) {
     if (shape === 'straight') {
         return `M ${start.x},${start.y} L ${end.x},${end.y}`;
@@ -33,17 +47,24 @@ function getConnectorPath(start, end, shape) {
         return `M ${start.x},${start.y} C ${control1.x},${control1.y} ${control2.x},${control2.y} ${end.x},${end.y}`;
     }
     // Default to elbow if shape is unrecognized
-    const midX = (start.x + end.x) / 2;
-    return `M ${start.x},${start.y} L ${midX},${start.y} L ${midX},${end.y} L ${end.x},${end.y}`;
+    const midDefaultX = (start.x + end.x) / 2;
+    return `M ${start.x},${start.y} L ${midDefaultX},${start.y} L ${midDefaultX},${end.y} L ${end.x},${end.y}`;
 }
 
-// Helper function to capitalize first letter
+/**
+ * Capitalize the first letter of a string, with special handling for 'none'.
+ * @param {string} string
+ * @returns {string}
+ */
 function capitalizeFirstLetter(string) {
     if (string === 'none') return 'None';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-// Function to update all connectors
+/**
+ * Update all connectors based on the current connector shape and node positions.
+ * @param {string} currentConnectorShape
+ */
 function updateConnectors(currentConnectorShape) {
     connectors.forEach(conn => {
         const fromNode = nodes.find(n => n.id === conn.from);
@@ -58,8 +79,11 @@ function updateConnectors(currentConnectorShape) {
     });
 }
 
-// Initial Unit Tests
+/**
+ * Initial unit tests to verify basic setup.
+ */
 function runTests() {
+    // The tests here assume that after initialization, we have 3 nodes and 2 connectors.
     console.assert(nodes.length === 3, 'Should have 3 nodes initially');
     console.assert(connectors.length === 2, 'Should have 2 connectors initially');
     console.assert(document.querySelector('[data-node-id="A"]'), 'Node A should exist');
@@ -70,7 +94,6 @@ function runTests() {
     console.log('All basic checks passed!');
 }
 
-// Export functions and data structures for use in other files
 export { 
     nodes, 
     connectors, 

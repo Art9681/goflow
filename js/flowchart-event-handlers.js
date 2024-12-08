@@ -1,6 +1,19 @@
-// Event Handlers for Flowchart Interactions
+// flowchart-event-handlers.js
+// Handles event listeners for modals, context menu, and other UI interactions.
+// Also initializes connection points for existing nodes.
 
-// Function to set up modal close/cancel event listeners
+/**
+ * Set up modal close/cancel event listeners for all modals.
+ * @param {HTMLElement} addNodeModal 
+ * @param {HTMLElement} addNodeClose 
+ * @param {HTMLElement} addNodeCancel 
+ * @param {HTMLElement} removeNodeModal 
+ * @param {HTMLElement} removeNodeClose 
+ * @param {HTMLElement} removeNodeCancel 
+ * @param {HTMLElement} settingsModal 
+ * @param {HTMLElement} settingsClose 
+ * @param {HTMLElement} settingsCancel 
+ */
 export function setupModalCloseListeners(
     addNodeModal, 
     addNodeClose, 
@@ -12,7 +25,7 @@ export function setupModalCloseListeners(
     settingsClose, 
     settingsCancel
 ) {
-    // Close modals when clicking on <span> (x)
+    // Close modals on close (x)
     addNodeClose.onclick = () => {
         addNodeModal.style.display = 'none';
     };
@@ -25,7 +38,7 @@ export function setupModalCloseListeners(
         settingsModal.style.display = 'none';
     };
 
-    // Close modals when clicking on Cancel buttons
+    // Close modals on Cancel buttons
     addNodeCancel.onclick = () => {
         addNodeModal.style.display = 'none';
     };
@@ -39,33 +52,45 @@ export function setupModalCloseListeners(
     };
 }
 
-// Function to set up window click event for closing modals
+/**
+ * Sets up a global window click handler to close modals if clicking outside them.
+ * @param {HTMLElement} addNodeModal 
+ * @param {HTMLElement} removeNodeModal 
+ * @param {HTMLElement} settingsModal 
+ */
 export function setupWindowClickHandler(
     addNodeModal, 
     removeNodeModal, 
     settingsModal
 ) {
     window.onclick = function (event) {
-        if (event.target == addNodeModal) {
+        if (event.target === addNodeModal) {
             addNodeModal.style.display = "none";
         }
-        if (event.target == removeNodeModal) {
+        if (event.target === removeNodeModal) {
             removeNodeModal.style.display = "none";
         }
-        if (event.target == settingsModal) {
+        if (event.target === settingsModal) {
             settingsModal.style.display = "none";
         }
     };
 }
 
-// Function to set up settings button event listener
+/**
+ * Sets up the settings button event listener to open the settings modal.
+ * @param {HTMLButtonElement} settingsBtn 
+ * @param {HTMLElement} settingsModal 
+ */
 export function setupSettingsButtonListener(settingsBtn, settingsModal) {
     settingsBtn.addEventListener('click', () => {
         settingsModal.style.display = 'block';
     });
 }
 
-// Function to initialize connection points for existing nodes
+/**
+ * Initialize connection points for existing nodes in the SVG.
+ * @param {Array} nodes - Array of node objects with {id, el}.
+ */
 export function initializeConnectionPoints(nodes) {
     nodes.forEach(node => {
         const inputPoint = node.el.querySelector('.connection-point.input');

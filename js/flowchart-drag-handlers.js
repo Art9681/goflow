@@ -1,8 +1,10 @@
-// Drag Handlers for Flowchart Nodes
+// flowchart-drag-handlers.js
+// Handles dragging of flowchart nodes. Includes selecting a node and updating its position.
+// Also updates connectors after repositioning nodes.
 
-import { 
-    nodes, 
-    updateConnectors 
+import {
+    nodes,
+    updateConnectors
 } from './flowchart-utils.js';
 
 let selectedNode = null;
@@ -10,7 +12,18 @@ let isDragging = false;
 let offsetX = 0;
 let offsetY = 0;
 
-// Function to select a node
+/** 
+ * @type {function|null}
+ * Event handler references for mousemove and mouseup to properly remove them later.
+ */
+let mouseMoveHandler = null;
+let mouseUpHandler = null;
+
+/**
+ * Select a node visually and update state.
+ * @param {SVGGElement|null} nodeEl - The node group element to select.
+ * @param {HTMLButtonElement} removeNodeBtn - Button to remove a node, enabled/disabled based on selection.
+ */
 export function selectNode(nodeEl, removeNodeBtn) {
     if (selectedNode) {
         selectedNode.querySelector('.node').classList.remove('selected');
@@ -24,11 +37,18 @@ export function selectNode(nodeEl, removeNodeBtn) {
     }
 }
 
-// Event handlers for dragging
+/**
+ * Handle mousedown event on the SVG to initiate node dragging if a node is clicked.
+ * @param {MouseEvent} e - The mousedown event.
+ * @param {SVGElement} svg - The main SVG element.
+ * @param {HTMLButtonElement} removeNodeBtn - The remove node button reference.
+ * @param {string} currentConnectorShape - The current shape of the connectors (e.g. 'elbow').
+ */
 export function onMouseDown(e, svg, removeNodeBtn, currentConnectorShape) {
     const nodeGroup = e.target.closest('.draggable-group');
     if (nodeGroup) {
         selectNode(nodeGroup, removeNodeBtn);
+
         const rect = nodeGroup.querySelector('rect');
         const startX = parseFloat(rect.getAttribute('x'));
         const startY = parseFloat(rect.getAttribute('y'));
@@ -36,18 +56,28 @@ export function onMouseDown(e, svg, removeNodeBtn, currentConnectorShape) {
         const svgRect = svg.getBoundingClientRect();
         offsetX = e.clientX - svgRect.left - startX;
         offsetY = e.clientY - svgRect.top - startY;
-        
+
         // Set dragging flag
         isDragging = true;
 
-        // Add event listeners
-        document.addEventListener('mousemove', (e) => onMouseMove(e, svg, currentConnectorShape));
-        document.addEventListener('mouseup', onMouseUp);
+        // Define handlers so we can remove them on mouseup
+        mouseMoveHandler = (event) => onMouseMove(event, svg, currentConnectorShape);
+        mouseUpHandler = () => onMouseUp();
+
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
     } else {
         selectNode(null, removeNodeBtn);
     }
 }
 
+/**
+ * Handle mousemove event during drag operation.
+ * Updates node positions and connector paths.
+ * @param {MouseEvent} e - The mousemove event.
+ * @param {SVGElement} svg - The main SVG element.
+ * @param {string} currentConnectorShape - Current connector shape.
+ */
 export function onMouseMove(e, svg, currentConnectorShape) {
     if (!isDragging || !selectedNode) return;
 
@@ -67,6 +97,7 @@ export function onMouseMove(e, svg, currentConnectorShape) {
 
     rect.setAttribute('x', newX);
     rect.setAttribute('y', newY);
+
     // Update text position accordingly
     text.setAttribute('x', newX + width / 2);
     text.setAttribute('y', newY + height / 2 + 5); // +5 for vertical alignment
@@ -79,7 +110,7 @@ export function onMouseMove(e, svg, currentConnectorShape) {
     outputPoint.setAttribute('cx', newX + width);
     outputPoint.setAttribute('cy', newY + height / 2);
 
-    // Find all type labels within the node group
+    // Update type labels positions
     const typeLabels = selectedNode.querySelectorAll('.type-label');
     typeLabels.forEach((label, index) => {
         if (index === 0) { // Input label
@@ -91,14 +122,24 @@ export function onMouseMove(e, svg, currentConnectorShape) {
         }
     });
 
+    // Update connectors that are connected to this node
     updateConnectors(currentConnectorShape);
 }
 
+/**
+ * Handle mouseup event to finalize dragging.
+ */
 export function onMouseUp() {
     // Reset dragging state
     isDragging = false;
 
     // Remove event listeners
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
+    if (mouseMoveHandler) {
+        document.removeEventListener('mousemove', mouseMoveHandler);
+        mouseMoveHandler = null;
+    }
+    if (mouseUpHandler) {
+        document.removeEventListener('mouseup', mouseUpHandler);
+        mouseUpHandler = null;
+    }
 }
