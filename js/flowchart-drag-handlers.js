@@ -62,8 +62,6 @@ export function onMouseDown(e, svg, removeNodeBtn, currentConnectorShape) {
         // Read x,y,width,height from dataset
         const startX = parseFloat(nodeGroup.dataset.x);
         const startY = parseFloat(nodeGroup.dataset.y);
-        const width = parseFloat(nodeGroup.dataset.width);
-        const height = parseFloat(nodeGroup.dataset.height);
 
         const svgRect = svg.getBoundingClientRect();
         offsetX = (e.clientX - svgRect.left) - startX;
@@ -210,6 +208,10 @@ function onMouseUp(svg, currentConnectorShape) {
                     type: 'solid'
                 });
                 updateConnectors(currentConnectorShape);
+
+                // Dispatch a custom event so flowchart.js can attach context menu
+                const event = new CustomEvent('connectorAdded', { detail: { connector: newConnector }});
+                document.dispatchEvent(event);
             }
         }
 

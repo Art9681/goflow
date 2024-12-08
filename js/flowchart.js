@@ -107,6 +107,29 @@ document.addEventListener('DOMContentLoaded', () => {
         ]
     };
 
+    /**
+     * Attach context menu event listener to a given connector element.
+     * This logic was originally inline in initializeDiagramFromJSON for existing connectors.
+     * Now we use this function to also attach context menus to newly created connectors.
+     */
+    function attachConnectorContextMenu(connectorEl) {
+        connectorEl.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            selectedConnector = connectors.find(conn => conn.el === e.target);
+            if (selectedConnector) {
+                contextAddNode.style.display = 'none';
+                contextRemoveNode.style.display = 'none';
+                document.querySelectorAll('.node-shape-option').forEach(item => item.style.display = 'none');
+                contextConnectorSolid.style.display = 'block';
+                contextConnectorDashed.style.display = 'block';
+
+                contextMenu.style.left = `${e.clientX}px`;
+                contextMenu.style.top = `${e.clientY}px`;
+                contextMenu.style.display = 'block';
+            }
+        });
+    }
+
     function initializeDiagramFromJSON(data) {
         clearDiagram(svg);
 
@@ -186,21 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: c.type
             });
 
-            path.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                selectedConnector = connectors.find(conn => conn.el === e.target);
-                if (selectedConnector) {
-                    contextAddNode.style.display = 'none';
-                    contextRemoveNode.style.display = 'none';
-                    document.querySelectorAll('.node-shape-option').forEach(item => item.style.display = 'none');
-                    contextConnectorSolid.style.display = 'block';
-                    contextConnectorDashed.style.display = 'block';
-
-                    contextMenu.style.left = `${e.clientX}px`;
-                    contextMenu.style.top = `${e.clientY}px`;
-                    contextMenu.style.display = 'block';
-                }
-            });
+            // Attach the context menu event to this connector
+            attachConnectorContextMenu(path);
         });
 
         updateConnectors(currentConnectorShape);
@@ -456,6 +466,12 @@ document.addEventListener('DOMContentLoaded', () => {
         exportLink.click();
         URL.revokeObjectURL(url);
         exportModal.style.display = 'none';
+    });
+
+    // Listen for newly created connectors
+    document.addEventListener('connectorAdded', (e) => {
+        const connectorEl = e.detail.connector;
+        attachConnectorContextMenu(connectorEl);
     });
 
     initializeDiagramFromJSON(initialData);
