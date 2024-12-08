@@ -185,6 +185,14 @@ svg {
     stroke-dasharray: 6, 4;
 }
 
+/* Highlight connectors on hover */
+.connector-solid:hover,
+.connector-dashed:hover {
+    stroke-width: 3;
+    stroke: #3498db;
+    cursor: pointer;
+}
+
 /* Temporary connector while dragging */
 .connector-dragging {
     fill: none;

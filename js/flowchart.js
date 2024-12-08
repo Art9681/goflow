@@ -1,7 +1,7 @@
 // flowchart.js
 // Main entry point that initializes the diagram, sets up event listeners,
 // context menu, and handles adding/removing nodes, changing settings,
-// and now importing/exporting diagrams as JSON.
+// and now importing/exporting diagrams as JSON, and connector style changes.
 
 import { 
     nodes, 
@@ -62,7 +62,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const importClose = document.getElementById('import-close');
     const importCancel = document.getElementById('import-cancel');
     const confirmImportBtn = document.getElementById('confirm-import-btn');
-    const importTextarea = document.getElementById('import-textarea');
 
     const exportModal = document.getElementById('export-modal');
     const exportClose = document.getElementById('export-close');
@@ -73,6 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const contextMenu = document.getElementById('context-menu');
     const contextAddNode = document.getElementById('context-add-node');
     const contextRemoveNode = document.getElementById('context-remove-node');
+    const contextConnectorSolid = document.getElementById('context-connector-solid');
+    const contextConnectorDashed = document.getElementById('context-connector-dashed');
 
     const importFile = document.getElementById('import-file');
     const triggerExport = document.getElementById('trigger-export');
@@ -86,39 +87,28 @@ document.addEventListener('DOMContentLoaded', () => {
     let rightClickX = 0;
     let rightClickY = 0;
     let rightClickedNode = null;
+    let selectedConnector = null; // Keep track of selected connector
 
-    /** 
-     * Update the currently selected node reference and visually highlight it.
-     * @param {SVGGElement|null} nodeEl 
-     */
     function updateSelectedNode(nodeEl) {
         selectedNode = nodeEl;
         selectNode(nodeEl, {disabled: true});
     }
 
-    // A JSON definition of initial nodes and connectors
     const initialData = {
         "nodes": [
-        { "id": "A", "x": 150, "y": 100, "width": 100, "height": 50, "label": "Node A", "inputType": "string", "outputType": "int" },
-        { "id": "B", "x": 350, "y": 200, "width": 100, "height": 50, "label": "Node B", "inputType": "int", "outputType": "float" },
-        { "id": "C", "x": 550, "y": 100, "width": 100, "height": 50, "label": "Node C", "inputType": "float", "outputType": "string" }
+            { "id": "A", "x": 150, "y": 100, "width": 100, "height": 50, "label": "Node A", "inputType": "string", "outputType": "int" },
+            { "id": "B", "x": 350, "y": 200, "width": 100, "height": 50, "label": "Node B", "inputType": "int", "outputType": "float" },
+            { "id": "C", "x": 550, "y": 100, "width": 100, "height": 50, "label": "Node C", "inputType": "float", "outputType": "string" }
         ],
         "connectors": [
-        { "id": "connector-A-B", "from": "A", "to": "B", "type": "solid" },
-        { "id": "connector-B-C", "from": "B", "to": "C", "type": "dashed" }
+            { "id": "connector-A-B", "from": "A", "to": "B", "type": "solid" },
+            { "id": "connector-B-C", "from": "B", "to": "C", "type": "dashed" }
         ]
     };
 
-    /**
-     * Initialize the diagram from JSON data.
-     * Clears the current diagram and creates nodes and connectors, updates connectors.
-     * @param {Object} data - JSON object with 'nodes' and 'connectors'.
-     */
     function initializeDiagramFromJSON(data) {
-        // Clear existing diagram using the updated clearDiagram function
         clearDiagram(svg);
 
-        // Create nodes
         data.nodes.forEach(n => {
             const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             nodeGroup.setAttribute('class', 'draggable-group');
@@ -139,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             text.setAttribute('alignment-baseline', 'middle');
             text.textContent = n.label;
 
-            // Input/Output points
             const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             inputPoint.setAttribute('class', 'connection-point input');
             inputPoint.setAttribute('cx', n.x);
@@ -152,7 +141,6 @@ document.addEventListener('DOMContentLoaded', () => {
             outputPoint.setAttribute('cy', n.y + n.height/2);
             outputPoint.setAttribute('r', '5');
 
-            // Type labels
             const inputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             inputLabel.setAttribute('class', 'type-label');
             inputLabel.setAttribute('x', n.x);
@@ -174,18 +162,15 @@ document.addEventListener('DOMContentLoaded', () => {
             nodeGroup.appendChild(inputLabel);
             nodeGroup.appendChild(outputLabel);
 
-            // Append the nodeGroup to nodesLayer
             nodesLayer.appendChild(nodeGroup);
             nodes.push({ id: n.id, el: nodeGroup });
 
-            // Update nodeCounter to ensure unique IDs for newly added nodes
             const numericPart = parseInt(n.id.replace(/\D+/g,''), 10);
             if (!isNaN(numericPart) && numericPart >= nodeCounter) {
                 nodeCounter = numericPart + 1;
             }
         });
 
-        // Create connectors
         data.connectors.forEach(c => {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             path.setAttribute('id', c.id);
@@ -199,21 +184,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 el: path,
                 type: c.type
             });
+
+            // Add right-click event to connectors
+            path.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                selectedConnector = connectors.find(conn => conn.el === e.target);
+                if (selectedConnector) {
+                    // Hide node-specific menu items
+                    contextAddNode.style.display = 'none';
+                    contextRemoveNode.style.display = 'none';
+
+                    // Show connector style items
+                    contextConnectorSolid.style.display = 'block';
+                    contextConnectorDashed.style.display = 'block';
+
+                    contextMenu.style.left = `${e.clientX}px`;
+                    contextMenu.style.top = `${e.clientY}px`;
+                    contextMenu.style.display = 'block';
+                }
+            });
         });
 
-        // Update all connectors
         updateConnectors(currentConnectorShape);
-
-        // Initialize connection points
         initializeConnectionPoints(nodes);
     }
 
-    /**
-     * Import a diagram from a JSON string.
-     * Clears the current diagram and loads the new one.
-     * Provides more detailed error messages if JSON is invalid.
-     * @param {string} jsonString
-     */
     function importDiagramFromJSON(jsonString) {
         const trimmed = jsonString.trim();
         if (!trimmed) {
@@ -238,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDiagramFromJSON(data);
     }
 
-    // Setup modal close listeners and other global handlers
     setupModalCloseListeners(
         addNodeModal, 
         addNodeClose, 
@@ -267,27 +261,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
     setupSettingsButtonListener(settingsBtn, settingsModal);
 
-    // Right-click context menu logic
     svg.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         const nodeGroup = e.target.closest('.draggable-group');
-        rightClickedNode = nodeGroup || null;
-        updateSelectedNode(rightClickedNode);
+        const connectorPath = e.target.closest('path');
 
-        const svgRect = svg.getBoundingClientRect();
-        rightClickX = e.clientX - svgRect.left;
-        rightClickY = e.clientY - svgRect.top;
-
-        contextMenu.style.left = `${e.clientX}px`;
-        contextMenu.style.top = `${e.clientY}px`;
-
-        if (rightClickedNode) {
-            contextRemoveNode.style.display = 'block';
-        } else {
+        // If we're on blank space
+        if (!nodeGroup && !connectorPath) {
+            rightClickedNode = null;
+            selectedConnector = null;
+            // Show node menu items
+            contextAddNode.style.display = 'block';
             contextRemoveNode.style.display = 'none';
-        }
+            // Hide connector items
+            contextConnectorSolid.style.display = 'none';
+            contextConnectorDashed.style.display = 'none';
+            contextMenu.style.left = `${e.clientX}px`;
+            contextMenu.style.top = `${e.clientY}px`;
+            contextMenu.style.display = 'block';
+        } else if (nodeGroup) {
+            // Right click on node
+            rightClickedNode = nodeGroup || null;
+            updateSelectedNode(rightClickedNode);
+            selectedConnector = null;
+            // Show node items
+            contextAddNode.style.display = 'block';
+            contextRemoveNode.style.display = 'block';
+            // Hide connector items
+            contextConnectorSolid.style.display = 'none';
+            contextConnectorDashed.style.display = 'none';
 
-        contextMenu.style.display = 'block';
+            const svgRect = svg.getBoundingClientRect();
+            rightClickX = e.clientX - svgRect.left;
+            rightClickY = e.clientY - svgRect.top;
+
+            contextMenu.style.left = `${e.clientX}px`;
+            contextMenu.style.top = `${e.clientY}px`;
+            contextMenu.style.display = 'block';
+        }
     });
 
     document.addEventListener('click', () => {
@@ -305,6 +316,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         removeNodeModal.style.display = 'block';
+    });
+
+    // Connector context menu actions
+    contextConnectorSolid.addEventListener('click', () => {
+        if (selectedConnector) {
+            selectedConnector.type = 'solid';
+            selectedConnector.el.setAttribute('class', 'connector-solid');
+            updateConnectors(currentConnectorShape);
+        }
+    });
+
+    contextConnectorDashed.addEventListener('click', () => {
+        if (selectedConnector) {
+            selectedConnector.type = 'dashed';
+            selectedConnector.el.setAttribute('class', 'connector-dashed');
+            updateConnectors(currentConnectorShape);
+        }
     });
 
     // Add node form submission
@@ -364,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Import/Export button handlers
     importBtn.addEventListener('click', () => {
         importModal.style.display = 'block';
-        importTextarea.value = '';
     });
 
     exportBtn.addEventListener('click', () => {
@@ -374,12 +401,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     confirmImportBtn.addEventListener('click', () => {
-        const jsonString = importTextarea.value;
+        const fileReaderTextArea = document.getElementById('import-textarea');
+        const jsonString = fileReaderTextArea ? fileReaderTextArea.value : '';
         importDiagramFromJSON(jsonString);
         importModal.style.display = 'none';
     });
 
-    // Import Handler
     importFile.addEventListener('change', (e) => {
         const file = e.target.files[0];
         const reader = new FileReader();
@@ -401,21 +428,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Export Handler
     triggerExport.addEventListener('click', () => {
         const jsonData = exportDiagramToJSON();
         const jsonString = JSON.stringify(jsonData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         exportLink.href = url;
-        exportLink.download = 'flowchart.json'; // Set the download attribute
+        exportLink.download = 'flowchart.json';
         exportLink.click();
-        URL.revokeObjectURL(url); // Clean up the URL object
+        URL.revokeObjectURL(url);
         exportModal.style.display = 'none';
     });
 
-    // Initialize the diagram from the provided initial data after DOM is loaded
+    // Initialize the diagram with initial data
     initializeDiagramFromJSON(initialData);
-    // Run basic tests
+
+    // Run tests
     runTests();
 });
