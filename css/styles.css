@@ -139,6 +139,22 @@ svg {
     stroke: var(--node-border);
     stroke-width: 1.5;
     cursor: pointer;
+    pointer-events: all;
+}
+
+.connection-point:hover {
+    fill: #007BFF;
+    stroke: #000;
+    stroke-width: 2;
+    cursor: crosshair;
+}
+
+.connection-point.valid-target {
+    fill: #2ecc71;
+    stroke: #27ae60;
+    stroke-width: 2;
+    r: 6;
+    transition: all 0.2s ease-in-out;
 }
 
 /* Type Labels */
@@ -167,6 +183,16 @@ svg {
     stroke: var(--connector-color);
     stroke-width: 2;
     stroke-dasharray: 6, 4;
+}
+
+/* Temporary connector while dragging */
+.connector-dragging {
+    fill: none;
+    stroke: var(--connector-color);
+    stroke-width: 2;
+    stroke-dasharray: 4,4;
+    pointer-events: none;
+    opacity: 0.8;
 }
 
 /* Modal Styling */

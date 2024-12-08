@@ -166,6 +166,17 @@ function runTests() {
     console.log('All basic checks passed!');
 }
 
+/**
+ * Checks if a connection between two nodes is valid.
+ * Only allows connections between inputs and outputs.
+ * @param {string} fromType - 'input' or 'output'.
+ * @param {string} toType - 'input' or 'output'.
+ * @returns {boolean}
+ */
+function isValidConnection(fromType, toType) {
+    return (fromType === 'output' && toType === 'input') || (fromType === 'input' && toType === 'output');
+}
+
 export { 
     nodes, 
     connectors, 
@@ -173,7 +184,9 @@ export {
     getConnectorPath, 
     capitalizeFirstLetter, 
     updateConnectors, 
+    isValidConnection,
     runTests,
     exportDiagramToJSON,
     clearDiagram
 };
+
