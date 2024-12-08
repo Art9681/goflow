@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -55,6 +54,15 @@
         <select id="connector-type" name="connectorType">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
+        </select>
+
+        <label for="node-shape">Node Shape:</label>
+        <select id="node-shape" name="nodeShape">
+          <option value="rounded-rect">Rounded Rect</option>
+          <option value="rect">Rectangle</option>
+          <option value="circle">Circle</option>
+          <option value="diamond">Diamond</option>
+          <option value="hexagon">Hexagon</option>
         </select>
 
         <button type="submit">Add Node</button>
@@ -122,6 +130,11 @@
     <li id="context-remove-node">Remove Node</li>
     <li id="context-connector-solid" style="display:none;">Make Solid</li>
     <li id="context-connector-dashed" style="display:none;">Make Dashed</li>
+    <li class="node-shape-option" id="context-node-rounded-rect" style="display:none;">Rounded Rect</li>
+    <li class="node-shape-option" id="context-node-rect" style="display:none;">Rectangle</li>
+    <li class="node-shape-option" id="context-node-circle" style="display:none;">Circle</li>
+    <li class="node-shape-option" id="context-node-diamond" style="display:none;">Diamond</li>
+    <li class="node-shape-option" id="context-node-hexagon" style="display:none;">Hexagon</li>
   </ul>
 
   <script type="module" src="js/flowchart.js"></script>

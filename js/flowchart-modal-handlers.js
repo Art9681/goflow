@@ -1,34 +1,18 @@
 // flowchart-modal-handlers.js
-// Handles adding and removing nodes via modals and applying settings changes.
+// Now stores node position and size in dataset attributes when adding nodes.
 
 import { 
     nodes, 
     connectors, 
-    updateConnectors 
+    updateConnectors,
+    createNodeShape
 } from './flowchart-utils.js';
 
-/**
- * Capitalize the first letter of a given string.
- * Special case: if string is 'none', return 'None'.
- * @param {string} string 
- * @returns {string}
- */
 export function capitalizeFirstLetter(string) {
     if (string === 'none') return 'None';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-/**
- * Handle adding a new node from the modal form data.
- * @param {SVGGElement|null} selectedNode - The currently selected node (if any) to connect from.
- * @param {SVGElement} svg - The main SVG element.
- * @param {number} nodeCounter - Current node counter, will be incremented for new nodes.
- * @param {string} currentConnectorShape - Current connector shape.
- * @param {function} updateSelectedNode - Function to update the currently selected node reference.
- * @param {number} x - The x-coordinate where the new node will be placed.
- * @param {number} y - The y-coordinate where the new node will be placed.
- * @returns {{success: boolean, nodeCounter: number}}
- */
 export function handleAddNode(
     selectedNode, 
     svg, 
@@ -40,16 +24,15 @@ export function handleAddNode(
 ) {
     const nodeLabel = document.getElementById('node-label').value.trim();
     const connectorType = document.getElementById('connector-type').value;
-
     const inputType = document.getElementById('input-type').value;
     const outputType = document.getElementById('output-type').value;
+    const nodeShape = document.getElementById('node-shape').value;
 
     if (nodeLabel === '') {
         alert('Node label cannot be empty.');
         return { success: false, nodeCounter };
     }
 
-    // Require at least one of input or output type
     if (inputType === 'none' && outputType === 'none') {
         alert('At least one of Input or Output type must be selected.');
         return { success: false, nodeCounter };
@@ -60,72 +43,66 @@ export function handleAddNode(
 
     const defaultX = x;
     const defaultY = y;
+    const width = 100;
+    const height = 50;
 
-    // Create node group
     const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     nodeGroup.setAttribute('class', 'draggable-group');
     nodeGroup.setAttribute('data-node-id', newNodeId);
+    nodeGroup.setAttribute('data-node-shape', nodeShape);
+    // Store position and size in dataset
+    nodeGroup.dataset.x = defaultX;
+    nodeGroup.dataset.y = defaultY;
+    nodeGroup.dataset.width = width;
+    nodeGroup.dataset.height = height;
 
-    // Create rectangle
-    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('class', 'node');
-    rect.setAttribute('x', defaultX);
-    rect.setAttribute('y', defaultY);
-    rect.setAttribute('width', '100');
-    rect.setAttribute('height', '50');
+    const shapeEl = createNodeShape(defaultX, defaultY, width, height, nodeShape);
 
-    // Create text
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('class', 'node-text');
-    text.setAttribute('x', defaultX + 50);
-    text.setAttribute('y', defaultY + 30);
+    text.setAttribute('x', defaultX + width/2);
+    text.setAttribute('y', defaultY + height/2 + 5);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('alignment-baseline', 'middle');
     text.textContent = nodeLabel;
 
-    // Create connection points
     const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     inputPoint.setAttribute('class', 'connection-point input');
     inputPoint.setAttribute('cx', defaultX);
-    inputPoint.setAttribute('cy', defaultY + 25);
+    inputPoint.setAttribute('cy', defaultY + height/2);
     inputPoint.setAttribute('r', '5');
 
     const outputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     outputPoint.setAttribute('class', 'connection-point output');
-    outputPoint.setAttribute('cx', defaultX + 100);
-    outputPoint.setAttribute('cy', defaultY + 25);
+    outputPoint.setAttribute('cx', defaultX + width);
+    outputPoint.setAttribute('cy', defaultY + height/2);
     outputPoint.setAttribute('r', '5');
 
-    // Create type labels
     const inputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     inputLabel.setAttribute('class', 'type-label');
     inputLabel.setAttribute('x', defaultX);
-    inputLabel.setAttribute('y', defaultY + 20);
+    inputLabel.setAttribute('y', defaultY + height/2 - 10);
     inputLabel.setAttribute('text-anchor', 'middle');
     inputLabel.textContent = capitalizeFirstLetter(inputType);
 
     const outputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     outputLabel.setAttribute('class', 'type-label');
-    outputLabel.setAttribute('x', defaultX + 100);
-    outputLabel.setAttribute('y', defaultY + 20);
+    outputLabel.setAttribute('x', defaultX + width);
+    outputLabel.setAttribute('y', defaultY + height/2 - 10);
     outputLabel.setAttribute('text-anchor', 'middle');
     outputLabel.textContent = capitalizeFirstLetter(outputType);
 
-    // Append all created elements to the node group
-    nodeGroup.appendChild(rect);
+    nodeGroup.appendChild(shapeEl);
     nodeGroup.appendChild(text);
     nodeGroup.appendChild(inputPoint);
     nodeGroup.appendChild(outputPoint);
     nodeGroup.appendChild(inputLabel);
     nodeGroup.appendChild(outputLabel);
 
-    // Append node group to SVG
     svg.querySelector('#nodes-layer').appendChild(nodeGroup);
 
-    // Add to nodes array
     nodes.push({ id: newNodeId, el: nodeGroup });
 
-    // If there's a selected node, create a connector from it to the new node
     if (selectedNode) {
         const connectorId = `connector-${selectedNode.getAttribute('data-node-id')}-${newNodeId}`;
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -150,14 +127,6 @@ export function handleAddNode(
     };
 }
 
-/**
- * Handle removing a node.
- * @param {SVGGElement|null} selectedNode - The currently selected node to remove.
- * @param {SVGElement} svg - The main SVG element.
- * @param {HTMLButtonElement} removeNodeBtn - The remove node button reference.
- * @param {string} currentConnectorShape - Current connector shape.
- * @returns {boolean}
- */
 export function handleRemoveNode(
     selectedNode, 
     svg, 
@@ -173,18 +142,15 @@ export function handleRemoveNode(
     const nodesLayer = svg.querySelector('#nodes-layer');
     const connectorsLayer = svg.querySelector('#connectors-layer');
 
-    // Remove the node from nodesLayer
     if (nodesLayer.contains(selectedNode)) {
         nodesLayer.removeChild(selectedNode);
     }
 
-    // Remove from nodes array
     const nodeIndex = nodes.findIndex(n => n.id === nodeId);
     if (nodeIndex !== -1) {
         nodes.splice(nodeIndex, 1);
     }
 
-    // Remove associated connectors
     const connectorsToRemove = connectors.filter(conn => conn.from === nodeId || conn.to === nodeId);
     connectorsToRemove.forEach(conn => {
         if (connectorsLayer.contains(conn.el)) {
@@ -194,18 +160,11 @@ export function handleRemoveNode(
         if (index !== -1) connectors.splice(index, 1);
     });
 
-    // Update remaining connectors
     updateConnectors(currentConnectorShape);
 
     return true;
 }
 
-/**
- * Handle settings changes to connector shape.
- * @param {HTMLSelectElement} connectorShapeSelect - The select element for connector shapes.
- * @param {string} currentConnectorShape - Current shape before change.
- * @returns {string} - New connector shape.
- */
 export function handleSettingsChange(
     connectorShapeSelect, 
     currentConnectorShape

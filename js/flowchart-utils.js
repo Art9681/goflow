@@ -1,40 +1,32 @@
 // flowchart-utils.js
-// Provides utility functions and data structures for managing nodes and connectors.
+// Provides utility functions including node shape creation, export, etc.
 
-// Arrays storing nodes and connectors in the diagram
-// Each node: {id: string, el: SVGElement}
-// Each connector: {id: string, from: string, to: string, el: SVGPathElement, type: string}
 const nodes = [];
 const connectors = [];
 
-/**
- * Get the connection point coordinates for a node.
- * @param {SVGGElement} node - The node's group element.
- * @param {string} type - "input" or "output" to determine which connection point.
- * @returns {{x: number, y: number}}
- */
 function getConnectionPoint(node, type) {
-    const rect = node.querySelector('rect');
-    const x = parseFloat(rect.getAttribute('x'));
-    const y = parseFloat(rect.getAttribute('y'));
-    const width = parseFloat(rect.getAttribute('width'));
-    const height = parseFloat(rect.getAttribute('height'));
+    const rectOrShape = node.querySelector('.node');
+    // For shapes, we rely on x,y,width,height from text or connection points.
+    // Let's find the input point position or from the first line
+    // We'll assume nodes always have text with known x,y to find center.
+
+    // We'll find center from text:
+    const text = node.querySelector('text.node-text');
+    const cx = parseFloat(text.getAttribute('x'));
+    const cy = parseFloat(text.getAttribute('y')) - 5; // since we added 5 earlier
+    const width = 100;
+    const height = 50;
+    const x = cx - width/2;
+    const y = cy - height/2 - 5; 
 
     if (type === 'input') {
-        return { x: x, y: y + height / 2 };
+        return { x: x, y: y + height/2 };
     } else if (type === 'output') {
-        return { x: x + width, y: y + height / 2 };
+        return { x: x + width, y: y + height/2 };
     }
     return { x: x + width / 2, y: y + height / 2 };
 }
 
-/**
- * Get the path data string for connectors based on the chosen shape.
- * @param {{x: number, y: number}} start 
- * @param {{x: number, y: number}} end 
- * @param {string} shape - 'straight', 'elbow', or 'curved'.
- * @returns {string} SVG path data
- */
 function getConnectorPath(start, end, shape) {
     if (shape === 'straight') {
         return `M ${start.x},${start.y} L ${end.x},${end.y}`;
@@ -46,25 +38,17 @@ function getConnectorPath(start, end, shape) {
         const control2 = { x: end.x - (end.x - start.x) / 4, y: end.y };
         return `M ${start.x},${start.y} C ${control1.x},${control1.y} ${control2.x},${control2.y} ${end.x},${end.y}`;
     }
-    // Default to elbow if shape is unrecognized
+
+    // default elbow
     const midDefaultX = (start.x + end.x) / 2;
     return `M ${start.x},${start.y} L ${midDefaultX},${start.y} L ${midDefaultX},${end.y} L ${end.x},${end.y}`;
 }
 
-/**
- * Capitalize the first letter of a string, with special handling for 'none'.
- * @param {string} string
- * @returns {string}
- */
 function capitalizeFirstLetter(string) {
     if (string === 'none') return 'None';
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-/**
- * Update all connectors based on the current connector shape and node positions.
- * @param {string} currentConnectorShape
- */
 function updateConnectors(currentConnectorShape) {
     connectors.forEach(conn => {
         const fromNode = nodes.find(n => n.id === conn.from);
@@ -79,37 +63,35 @@ function updateConnectors(currentConnectorShape) {
     });
 }
 
-/**
- * Convert the current nodes and connectors into a JSON object
- * suitable for exporting.
- * @returns {Object} JSON representation of the diagram
- */
 function exportDiagramToJSON() {
     const nodeData = nodes.map(n => {
-        const rect = n.el.querySelector('rect');
         const text = n.el.querySelector('.node-text');
-        const labels = n.el.querySelectorAll('.type-label');
-        
-        let inputType = 'none';
-        let outputType = 'none';
-        if (labels.length > 0) {
-            // input label is first
-            inputType = labels[0].textContent.toLowerCase();
-            // output label is second
-            if (labels.length > 1) {
-                outputType = labels[1].textContent.toLowerCase();
-            }
-        }
+        const inputLabel = n.el.querySelectorAll('.type-label')[0];
+        const outputLabel = n.el.querySelectorAll('.type-label')[1];
+
+        const inputType = inputLabel ? inputLabel.textContent.toLowerCase() : 'none';
+        const outputType = outputLabel ? outputLabel.textContent.toLowerCase() : 'none';
+
+        // Recalculate x,y from text since shape might vary
+        const cx = parseFloat(text.getAttribute('x'));
+        const cy = parseFloat(text.getAttribute('y')) - 5;
+        const width = 100;
+        const height = 50;
+        const x = cx - width/2;
+        const y = cy - height/2 - 5;
+
+        const shape = n.el.getAttribute('data-node-shape') || 'rounded-rect';
 
         return {
             id: n.id,
-            x: parseFloat(rect.getAttribute('x')),
-            y: parseFloat(rect.getAttribute('y')),
-            width: parseFloat(rect.getAttribute('width')),
-            height: parseFloat(rect.getAttribute('height')),
+            x: x,
+            y: y,
+            width: width,
+            height: height,
             label: text.textContent,
             inputType: inputType,
-            outputType: outputType
+            outputType: outputType,
+            shape: shape
         };
     });
 
@@ -126,16 +108,10 @@ function exportDiagramToJSON() {
     };
 }
 
-/**
- * Clears the current diagram (removes nodes and connectors from their respective layers and arrays).
- * @param {SVGElement} svg - The main SVG element.
- */
 function clearDiagram(svg) {
-    // Get references to layers for removing children
     const nodesLayer = svg.querySelector('#nodes-layer');
     const connectorsLayer = svg.querySelector('#connectors-layer');
 
-    // Remove all node elements from nodes-layer
     nodes.forEach(n => {
         if (nodesLayer.contains(n.el)) {
             nodesLayer.removeChild(n.el);
@@ -143,7 +119,6 @@ function clearDiagram(svg) {
     });
     nodes.length = 0;
 
-    // Remove all connector elements from connectors-layer
     connectors.forEach(c => {
         if (connectorsLayer.contains(c.el)) {
             connectorsLayer.removeChild(c.el);
@@ -152,11 +127,8 @@ function clearDiagram(svg) {
     connectors.length = 0;
 }
 
-/**
- * Initial unit tests to verify basic setup.
- */
 function runTests() {
-    console.assert(nodes.length === 3, 'Should have 3 nodes initially');
+    console.assert(nodes.length === 3, 'Should have 3 nodes initially', nodes.length);
     console.assert(connectors.length === 2, 'Should have 2 connectors initially');
     console.assert(document.querySelector('[data-node-id="A"]'), 'Node A should exist');
     console.assert(document.querySelector('[data-node-id="B"]'), 'Node B should exist');
@@ -166,15 +138,80 @@ function runTests() {
     console.log('All basic checks passed!');
 }
 
-/**
- * Checks if a connection between two nodes is valid.
- * Only allows connections between inputs and outputs.
- * @param {string} fromType - 'input' or 'output'.
- * @param {string} toType - 'input' or 'output'.
- * @returns {boolean}
- */
 function isValidConnection(fromType, toType) {
     return (fromType === 'output' && toType === 'input') || (fromType === 'input' && toType === 'output');
+}
+
+/**
+ * Create a node shape element based on given shape type.
+ * Supported shapes: rounded-rect, rect, circle, diamond, hexagon
+ */
+function createNodeShape(x, y, width, height, shapeType) {
+    let shapeEl;
+    const ns = "http://www.w3.org/2000/svg";
+
+    if (shapeType === 'rounded-rect') {
+        shapeEl = document.createElementNS(ns, 'rect');
+        shapeEl.setAttribute('x', x);
+        shapeEl.setAttribute('y', y);
+        shapeEl.setAttribute('width', width);
+        shapeEl.setAttribute('height', height);
+        shapeEl.setAttribute('rx', '10');
+        shapeEl.setAttribute('ry', '10');
+        shapeEl.setAttribute('class', 'node');
+    } else if (shapeType === 'rect') {
+        shapeEl = document.createElementNS(ns, 'rect');
+        shapeEl.setAttribute('x', x);
+        shapeEl.setAttribute('y', y);
+        shapeEl.setAttribute('width', width);
+        shapeEl.setAttribute('height', height);
+        shapeEl.setAttribute('rx', '0');
+        shapeEl.setAttribute('ry', '0');
+        shapeEl.setAttribute('class', 'node');
+    } else if (shapeType === 'circle') {
+        shapeEl = document.createElementNS(ns, 'circle');
+        // center circle in rect
+        const cx = x + width/2;
+        const cy = y + height/2;
+        const r = Math.min(width, height)/2;
+        shapeEl.setAttribute('cx', cx);
+        shapeEl.setAttribute('cy', cy);
+        shapeEl.setAttribute('r', r);
+        shapeEl.setAttribute('class', 'node');
+    } else if (shapeType === 'diamond') {
+        shapeEl = document.createElementNS(ns, 'polygon');
+        // diamond points: top, right, bottom, left
+        const p1 = `${x+width/2},${y}`;
+        const p2 = `${x+width},${y+height/2}`;
+        const p3 = `${x+width/2},${y+height}`;
+        const p4 = `${x},${y+height/2}`;
+        shapeEl.setAttribute('points', `${p1} ${p2} ${p3} ${p4}`);
+        shapeEl.setAttribute('class', 'node');
+    } else if (shapeType === 'hexagon') {
+        shapeEl = document.createElementNS(ns, 'polygon');
+        // hexagon points (flat topped):
+        // Let's do a wide hex: top-left, top-right, mid-right, bottom-right, bottom-left, mid-left
+        const p1 = `${x+width*0.25},${y}`;
+        const p2 = `${x+width*0.75},${y}`;
+        const p3 = `${x+width},${y+height/2}`;
+        const p4 = `${x+width*0.75},${y+height}`;
+        const p5 = `${x+width*0.25},${y+height}`;
+        const p6 = `${x},${y+height/2}`;
+        shapeEl.setAttribute('points', `${p1} ${p2} ${p3} ${p4} ${p5} ${p6}`);
+        shapeEl.setAttribute('class', 'node');
+    } else {
+        // default to rounded rect if something unexpected
+        shapeEl = document.createElementNS(ns, 'rect');
+        shapeEl.setAttribute('x', x);
+        shapeEl.setAttribute('y', y);
+        shapeEl.setAttribute('width', width);
+        shapeEl.setAttribute('height', height);
+        shapeEl.setAttribute('rx', '10');
+        shapeEl.setAttribute('ry', '10');
+        shapeEl.setAttribute('class', 'node');
+    }
+
+    return shapeEl;
 }
 
 export { 
@@ -187,6 +224,6 @@ export {
     isValidConnection,
     runTests,
     exportDiagramToJSON,
-    clearDiagram
+    clearDiagram,
+    createNodeShape
 };
-

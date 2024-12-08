@@ -1,25 +1,6 @@
 // flowchart-event-handlers.js
-// Handles event listeners for modals, context menu, and other UI interactions.
-// Also initializes connection points for existing nodes.
+// Now uses node dataset attributes for positions instead of querying rect.
 
-/**
- * Set up modal close/cancel event listeners for all modals.
- * @param {HTMLElement} addNodeModal 
- * @param {HTMLElement} addNodeClose 
- * @param {HTMLElement} addNodeCancel 
- * @param {HTMLElement} removeNodeModal 
- * @param {HTMLElement} removeNodeClose 
- * @param {HTMLElement} removeNodeCancel 
- * @param {HTMLElement} settingsModal 
- * @param {HTMLElement} settingsClose 
- * @param {HTMLElement} settingsCancel
- * @param {HTMLElement} importModal - Import modal element
- * @param {HTMLElement} importClose - Close (x) span for import modal
- * @param {HTMLElement} importCancel - Cancel button in import modal
- * @param {HTMLElement} exportModal - Export modal element
- * @param {HTMLElement} exportClose - Close (x) span for export modal
- * @param {HTMLElement} exportCancel - Cancel button in export modal
- */
 export function setupModalCloseListeners(
     addNodeModal, 
     addNodeClose, 
@@ -80,14 +61,6 @@ export function setupModalCloseListeners(
     };
 }
 
-/**
- * Sets up a global window click handler to close modals if clicking outside them.
- * @param {HTMLElement} addNodeModal 
- * @param {HTMLElement} removeNodeModal 
- * @param {HTMLElement} settingsModal
- * @param {HTMLElement} importModal
- * @param {HTMLElement} exportModal
- */
 export function setupWindowClickHandler(
     addNodeModal, 
     removeNodeModal, 
@@ -114,11 +87,6 @@ export function setupWindowClickHandler(
     };
 }
 
-/**
- * Sets up the settings button event listener to open the settings modal.
- * @param {HTMLButtonElement} settingsBtn 
- * @param {HTMLElement} settingsModal 
- */
 export function setupSettingsButtonListener(settingsBtn, settingsModal) {
     settingsBtn.addEventListener('click', () => {
         settingsModal.style.display = 'block';
@@ -126,18 +94,19 @@ export function setupSettingsButtonListener(settingsBtn, settingsModal) {
 }
 
 /**
- * Initialize connection points for existing nodes in the SVG.
- * @param {Array} nodes - Array of node objects with {id, el}.
+ * Initialize connection points for existing nodes.
+ * Now reads x,y,width,height from dataset attributes on the node group.
  */
 export function initializeConnectionPoints(nodes) {
     nodes.forEach(node => {
         const inputPoint = node.el.querySelector('.connection-point.input');
         const outputPoint = node.el.querySelector('.connection-point.output');
-        const rect = node.el.querySelector('rect');
-        const x = parseFloat(rect.getAttribute('x'));
-        const y = parseFloat(rect.getAttribute('y'));
-        const width = parseFloat(rect.getAttribute('width'));
-        const height = parseFloat(rect.getAttribute('height'));
+
+        // Read from dataset
+        const x = parseFloat(node.el.dataset.x);
+        const y = parseFloat(node.el.dataset.y);
+        const width = parseFloat(node.el.dataset.width);
+        const height = parseFloat(node.el.dataset.height);
 
         inputPoint.setAttribute('cx', x);
         inputPoint.setAttribute('cy', y + height / 2);

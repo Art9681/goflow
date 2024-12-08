@@ -1,7 +1,5 @@
 // flowchart.js
-// Main entry point that initializes the diagram, sets up event listeners,
-// context menu, and handles adding/removing nodes, changing settings,
-// and now importing/exporting diagrams as JSON, and connector style changes.
+// Stores data attributes when initializing nodes and when changing node shape.
 
 import { 
     nodes, 
@@ -10,7 +8,8 @@ import {
     runTests,
     capitalizeFirstLetter,
     exportDiagramToJSON,
-    clearDiagram
+    clearDiagram,
+    createNodeShape
 } from './flowchart-utils.js';
 
 import { 
@@ -37,7 +36,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const nodesLayer = document.getElementById('nodes-layer');
     const settingsBtn = document.getElementById('settings-btn');
 
-    // Modal Elements
     const addNodeModal = document.getElementById('add-node-modal');
     const addNodeClose = document.getElementById('add-node-close');
     const addNodeCancel = document.getElementById('add-node-cancel');
@@ -54,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const settingsForm = document.getElementById('settings-form');
     const connectorShapeSelect = document.getElementById('connector-shape');
 
-    // Import/Export Elements
     const importBtn = document.getElementById('import-btn');
     const exportBtn = document.getElementById('export-btn');
 
@@ -68,26 +65,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportCancel = document.getElementById('export-cancel');
     const exportTextarea = document.getElementById('export-textarea');
 
-    // Context menu elements
     const contextMenu = document.getElementById('context-menu');
     const contextAddNode = document.getElementById('context-add-node');
     const contextRemoveNode = document.getElementById('context-remove-node');
     const contextConnectorSolid = document.getElementById('context-connector-solid');
     const contextConnectorDashed = document.getElementById('context-connector-dashed');
 
+    const contextNodeRoundedRect = document.getElementById('context-node-rounded-rect');
+    const contextNodeRect = document.getElementById('context-node-rect');
+    const contextNodeCircle = document.getElementById('context-node-circle');
+    const contextNodeDiamond = document.getElementById('context-node-diamond');
+    const contextNodeHexagon = document.getElementById('context-node-hexagon');
+
     const importFile = document.getElementById('import-file');
     const triggerExport = document.getElementById('trigger-export');
     const exportLink = document.getElementById('export-link');
 
-    let nodeCounter = 1; // will increment as we add nodes
+    let nodeCounter = 1; 
     let selectedNode = null; 
     let currentConnectorShape = 'elbow';
 
-    // Track right-click info
     let rightClickX = 0;
     let rightClickY = 0;
     let rightClickedNode = null;
-    let selectedConnector = null; // Keep track of selected connector
+    let selectedConnector = null; 
 
     function updateSelectedNode(nodeEl) {
         selectedNode = nodeEl;
@@ -96,9 +97,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initialData = {
         "nodes": [
-            { "id": "A", "x": 150, "y": 100, "width": 100, "height": 50, "label": "Node A", "inputType": "string", "outputType": "int" },
-            { "id": "B", "x": 350, "y": 200, "width": 100, "height": 50, "label": "Node B", "inputType": "int", "outputType": "float" },
-            { "id": "C", "x": 550, "y": 100, "width": 100, "height": 50, "label": "Node C", "inputType": "float", "outputType": "string" }
+            { "id": "A", "x": 150, "y": 100, "width": 100, "height": 50, "label": "Node A", "inputType": "string", "outputType": "int", "shape": "rounded-rect" },
+            { "id": "B", "x": 350, "y": 200, "width": 100, "height": 50, "label": "Node B", "inputType": "int", "outputType": "float", "shape": "rect" },
+            { "id": "C", "x": 550, "y": 100, "width": 100, "height": 50, "label": "Node C", "inputType": "float", "outputType": "string", "shape": "circle" }
         ],
         "connectors": [
             { "id": "connector-A-B", "from": "A", "to": "B", "type": "solid" },
@@ -113,20 +114,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             nodeGroup.setAttribute('class', 'draggable-group');
             nodeGroup.setAttribute('data-node-id', n.id);
+            nodeGroup.setAttribute('data-node-shape', n.shape);
+            nodeGroup.dataset.x = n.x;
+            nodeGroup.dataset.y = n.y;
+            nodeGroup.dataset.width = n.width;
+            nodeGroup.dataset.height = n.height;
 
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('class', 'node');
-            rect.setAttribute('x', n.x);
-            rect.setAttribute('y', n.y);
-            rect.setAttribute('width', n.width);
-            rect.setAttribute('height', n.height);
+            const shapeEl = createNodeShape(n.x, n.y, n.width, n.height, n.shape);
 
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('class', 'node-text');
-            text.setAttribute('x', n.x + n.width / 2);
-            text.setAttribute('y', n.y + n.height / 2 + 5);
             text.setAttribute('text-anchor', 'middle');
             text.setAttribute('alignment-baseline', 'middle');
+            text.setAttribute('x', n.x + n.width / 2);
+            text.setAttribute('y', n.y + n.height / 2 + 5);
             text.textContent = n.label;
 
             const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -155,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             outputLabel.setAttribute('text-anchor', 'middle');
             outputLabel.textContent = capitalizeFirstLetter(n.outputType);
 
-            nodeGroup.appendChild(rect);
+            nodeGroup.appendChild(shapeEl);
             nodeGroup.appendChild(text);
             nodeGroup.appendChild(inputPoint);
             nodeGroup.appendChild(outputPoint);
@@ -185,16 +186,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: c.type
             });
 
-            // Add right-click event to connectors
             path.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 selectedConnector = connectors.find(conn => conn.el === e.target);
                 if (selectedConnector) {
-                    // Hide node-specific menu items
                     contextAddNode.style.display = 'none';
                     contextRemoveNode.style.display = 'none';
-
-                    // Show connector style items
+                    document.querySelectorAll('.node-shape-option').forEach(item => item.style.display = 'none');
                     contextConnectorSolid.style.display = 'block';
                     contextConnectorDashed.style.display = 'block';
 
@@ -266,30 +264,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodeGroup = e.target.closest('.draggable-group');
         const connectorPath = e.target.closest('path');
 
-        // If we're on blank space
         if (!nodeGroup && !connectorPath) {
             rightClickedNode = null;
             selectedConnector = null;
-            // Show node menu items
             contextAddNode.style.display = 'block';
             contextRemoveNode.style.display = 'none';
-            // Hide connector items
             contextConnectorSolid.style.display = 'none';
             contextConnectorDashed.style.display = 'none';
+            document.querySelectorAll('.node-shape-option').forEach(item => item.style.display = 'none');
+
             contextMenu.style.left = `${e.clientX}px`;
             contextMenu.style.top = `${e.clientY}px`;
             contextMenu.style.display = 'block';
         } else if (nodeGroup) {
-            // Right click on node
-            rightClickedNode = nodeGroup || null;
+            rightClickedNode = nodeGroup;
             updateSelectedNode(rightClickedNode);
             selectedConnector = null;
-            // Show node items
+
             contextAddNode.style.display = 'block';
             contextRemoveNode.style.display = 'block';
-            // Hide connector items
             contextConnectorSolid.style.display = 'none';
             contextConnectorDashed.style.display = 'none';
+            document.querySelectorAll('.node-shape-option').forEach(item => item.style.display = 'block');
 
             const svgRect = svg.getBoundingClientRect();
             rightClickX = e.clientX - svgRect.left;
@@ -318,7 +314,6 @@ document.addEventListener('DOMContentLoaded', () => {
         removeNodeModal.style.display = 'block';
     });
 
-    // Connector context menu actions
     contextConnectorSolid.addEventListener('click', () => {
         if (selectedConnector) {
             selectedConnector.type = 'solid';
@@ -335,7 +330,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Add node form submission
+    function changeNodeShape(shape) {
+        if (!rightClickedNode) return;
+        const nodeData = nodes.find(n => n.el === rightClickedNode);
+        if (!nodeData) return;
+
+        const oldShapeEl = rightClickedNode.querySelector('.node');
+        if (oldShapeEl) {
+            rightClickedNode.removeChild(oldShapeEl);
+        }
+
+        const width = parseFloat(rightClickedNode.dataset.width);
+        const height = parseFloat(rightClickedNode.dataset.height);
+        const x = parseFloat(rightClickedNode.dataset.x);
+        const y = parseFloat(rightClickedNode.dataset.y);
+
+        const newShapeEl = createNodeShape(x, y, width, height, shape);
+        rightClickedNode.insertBefore(newShapeEl, rightClickedNode.firstChild);
+        rightClickedNode.setAttribute('data-node-shape', shape);
+
+        updateConnectors(currentConnectorShape);
+    }
+
+    contextNodeRoundedRect.addEventListener('click', () => changeNodeShape('rounded-rect'));
+    contextNodeRect.addEventListener('click', () => changeNodeShape('rect'));
+    contextNodeCircle.addEventListener('click', () => changeNodeShape('circle'));
+    contextNodeDiamond.addEventListener('click', () => changeNodeShape('diamond'));
+    contextNodeHexagon.addEventListener('click', () => changeNodeShape('hexagon'));
+
     addNodeForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const result = handleAddNode(
@@ -354,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Confirm remove node
     confirmRemoveBtn.addEventListener('click', () => {
         const success = handleRemoveNode(
             selectedNode, 
@@ -369,7 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Settings form submission
     settingsForm.addEventListener('submit', (e) => {
         e.preventDefault();
         currentConnectorShape = handleSettingsChange(
@@ -380,7 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsModal.style.display = 'none';
     });
 
-    // Mousedown to potentially drag nodes
     svg.addEventListener('mousedown', (e) => {
         const nodeGroup = e.target.closest('.draggable-group');
         if (nodeGroup) {
@@ -389,7 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
         onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
     });
 
-    // Import/Export button handlers
     importBtn.addEventListener('click', () => {
         importModal.style.display = 'block';
     });
@@ -440,9 +458,6 @@ document.addEventListener('DOMContentLoaded', () => {
         exportModal.style.display = 'none';
     });
 
-    // Initialize the diagram with initial data
     initializeDiagramFromJSON(initialData);
-
-    // Run tests
     runTests();
 });

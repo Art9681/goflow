@@ -1,8 +1,7 @@
 /*
  * styles.css
  * This file defines both light and dark theme variables, as well as styling
- * for the flowchart interface including nodes, connectors, menus, modals, and
- * context menus.
+ * for nodes, connectors, menus, modals, etc.
  */
 
  :root {
@@ -115,8 +114,6 @@ svg {
     fill: var(--node-bg);
     stroke: var(--node-border);
     stroke-width: 2;
-    rx: 10;
-    ry: 10;
     cursor: move;
     transition: stroke 0.3s, stroke-width 0.3s;
 }
@@ -295,6 +292,7 @@ svg {
     background: #c0392b;
 }
 
+/* Context Menu */
 #context-menu {
     position: absolute;
     z-index: 1000;
