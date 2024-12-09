@@ -1,5 +1,4 @@
 // flowchart.js
-// Stores data attributes when initializing nodes and when changing node shape.
 
 import { 
     nodes, 
@@ -55,6 +54,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const importBtn = document.getElementById('import-btn');
     const exportBtn = document.getElementById('export-btn');
 
+    // NEW: K8s Import elements
+    const importK8sBtn = document.getElementById('import-k8s-btn');
+    const importK8sModal = document.getElementById('import-k8s-modal');
+    const importK8sClose = document.getElementById('import-k8s-close');
+    const importK8sCancel = document.getElementById('import-k8s-cancel');
+    const importK8sFile = document.getElementById('import-k8s-file');
+    const confirmImportK8sBtn = document.getElementById('confirm-import-k8s-btn');
+
     const importModal = document.getElementById('import-modal');
     const importClose = document.getElementById('import-close');
     const importCancel = document.getElementById('import-cancel');
@@ -107,11 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ]
     };
 
-    /**
-     * Attach context menu event listener to a given connector element.
-     * This logic was originally inline in initializeDiagramFromJSON for existing connectors.
-     * Now we use this function to also attach context menus to newly created connectors.
-     */
     function attachConnectorContextMenu(connectorEl) {
         connectorEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -239,6 +241,126 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         initializeDiagramFromJSON(data);
+    }
+
+    // NEW: Function to parse K8s JSON and create topology data
+    function createTopologyFromK8sResources(k8sJson) {
+        // k8sJson is expected to be output from `kubectl get services,deployments,pods -o json`
+        // Structure: items: [ {kind: Service/Deployment/Pod, metadata:{}, spec:{}}, ... ]
+
+        const items = k8sJson.items || [];
+        const services = items.filter(i => i.kind === 'Service');
+        const deployments = items.filter(i => i.kind === 'Deployment');
+        const pods = items.filter(i => i.kind === 'Pod');
+
+        // Create a mapping of pods by their labels for quick lookup
+        // Actually we just need to find pods matching selectors
+        // We'll create arrays of nodes first
+        let nodeIdCounter = 1;
+        const nodeData = [];
+        const connectorData = [];
+
+        // Helper: create node
+        function createNode(id, x, y, label, shape, inputType='none', outputType='none') {
+            return {
+                id,
+                x, y, width:100, height:50, label, inputType, outputType, shape
+            };
+        }
+
+        // We'll do a simple layout: Services at top row, Deployments at middle row, Pods at bottom row
+        // Just to differentiate them visually in the demo.
+        // x spacing: 200px apart
+        // services start at (100,100)
+        // deployments start at (100,300)
+        // pods start at (100,500)
+        
+        let sx = 100;
+        let dx = 100;
+        let px = 100;
+        const xIncrement = 200;
+
+        // Create service nodes
+        const serviceNodes = {};
+        for (const svc of services) {
+            const id = `S${nodeIdCounter++}`;
+            const label = svc.metadata.name;
+            serviceNodes[svc.metadata.name] = id;
+            nodeData.push(createNode(id, sx, 100, label, 'circle')); // circle replaced by pill
+            sx += xIncrement;
+        }
+
+        // Create deployment nodes
+        const deploymentNodes = {};
+        for (const dep of deployments) {
+            const id = `D${nodeIdCounter++}`;
+            const label = dep.metadata.name;
+            deploymentNodes[dep.metadata.name] = {
+                id,
+                matchLabels: dep.spec.selector?.matchLabels || {}
+            };
+            nodeData.push(createNode(id, dx, 300, label, 'diamond'));
+            dx += xIncrement;
+        }
+
+        // Create pod nodes
+        const podNodes = {};
+        for (const pod of pods) {
+            const id = `P${nodeIdCounter++}`;
+            const label = pod.metadata.name;
+            podNodes[pod.metadata.name] = {
+                id,
+                labels: pod.metadata.labels || {}
+            };
+            nodeData.push(createNode(id, px, 500, label, 'rect'));
+            px += xIncrement;
+        }
+
+        // Now create connectors:
+        // 1. Services → Pods (match svc.spec.selector with pod.metadata.labels)
+        for (const svc of services) {
+            const svcNodeId = serviceNodes[svc.metadata.name];
+            const svcSelector = svc.spec.selector || {};
+            // Find pods that match this selector
+            for (const [podName, pObj] of Object.entries(podNodes)) {
+                if (labelsMatch(svcSelector, pObj.labels)) {
+                    const connId = `connector-${svcNodeId}-${pObj.id}`;
+                    connectorData.push({
+                        id: connId,
+                        from: svcNodeId,
+                        to: pObj.id,
+                        type: 'solid'
+                    });
+                }
+            }
+        }
+
+        // 2. Deployments → Pods (match dep.spec.selector.matchLabels with pod.metadata.labels)
+        for (const dep of deployments) {
+            const depNodeId = deploymentNodes[dep.metadata.name].id;
+            const depSelector = deploymentNodes[dep.metadata.name].matchLabels;
+            for (const [podName, pObj] of Object.entries(podNodes)) {
+                if (labelsMatch(depSelector, pObj.labels)) {
+                    const connId = `connector-${depNodeId}-${pObj.id}`;
+                    connectorData.push({
+                        id: connId,
+                        from: depNodeId,
+                        to: pObj.id,
+                        type: 'dashed'
+                    });
+                }
+            }
+        }
+
+        // Utility function to check if all selector keys match in labels
+        function labelsMatch(selector, labels) {
+            for (const [k,v] of Object.entries(selector)) {
+                if (labels[k] !== v) return false;
+            }
+            return true;
+        }
+
+        return { nodes: nodeData, connectors: connectorData };
     }
 
     setupModalCloseListeners(
@@ -473,6 +595,39 @@ document.addEventListener('DOMContentLoaded', () => {
         const connectorEl = e.detail.connector;
         attachConnectorContextMenu(connectorEl);
     });
+
+    // NEW: Setup Import K8s workflow
+    importK8sBtn.addEventListener('click', () => {
+        importK8sModal.style.display = 'block';
+    });
+
+    confirmImportK8sBtn.addEventListener('click', () => {
+        if (!importK8sFile.files[0]) {
+            alert("No file selected");
+            return;
+        }
+        const file = importK8sFile.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const k8sJson = JSON.parse(event.target.result);
+                const topoData = createTopologyFromK8sResources(k8sJson);
+                initializeDiagramFromJSON(topoData);
+            } catch (err) {
+                console.error('Error parsing K8s JSON', err);
+                alert('Invalid K8s JSON file');
+            }
+            importK8sModal.style.display = 'none';
+        };
+        reader.readAsText(file);
+    });
+
+    importK8sClose.onclick = () => {
+        importK8sModal.style.display = 'none';
+    };
+    importK8sCancel.onclick = () => {
+        importK8sModal.style.display = 'none';
+    };
 
     initializeDiagramFromJSON(initialData);
     runTests();

@@ -13,6 +13,8 @@
     <h2>Flowchart Menu</h2>
     <button id="settings-btn">Settings</button>
     <button id="import-btn">Import Diagram</button>
+    <!-- NEW BUTTON: Import K8s -->
+    <button id="import-k8s-btn">Import K8s</button>
     <button id="export-btn">Export Diagram</button>
     <button id="theme-toggle">🌞 Light Mode</button>
   </div>
@@ -109,6 +111,17 @@
       <input type="file" id="import-file" accept=".json">
       <button id="confirm-import-btn">Import</button>
       <button type="button" class="cancel-btn" id="import-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- NEW: Import K8s Modal -->
+  <div id="import-k8s-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="import-k8s-close">×</span>
+      <h3>Import K8s Topology</h3>
+      <input type="file" id="import-k8s-file" accept=".json">
+      <button id="confirm-import-k8s-btn">Import</button>
+      <button type="button" class="cancel-btn" id="import-k8s-cancel">Cancel</button>
     </div>
   </div>
 
