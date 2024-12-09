@@ -145,6 +145,9 @@ function isValidConnection(fromType, toType) {
 /**
  * Create a node shape element based on given shape type.
  * Supported shapes: rounded-rect, rect, circle, diamond, hexagon
+ * 
+ * We are now replacing the 'circle' shape with a pill-shaped element.
+ * A pill shape can be represented as a rect with large rounded corners.
  */
 function createNodeShape(x, y, width, height, shapeType) {
     let shapeEl;
@@ -169,14 +172,17 @@ function createNodeShape(x, y, width, height, shapeType) {
         shapeEl.setAttribute('ry', '0');
         shapeEl.setAttribute('class', 'node');
     } else if (shapeType === 'circle') {
-        shapeEl = document.createElementNS(ns, 'circle');
-        // center circle in rect
-        const cx = x + width/2;
-        const cy = y + height/2;
-        const r = Math.min(width, height)/2;
-        shapeEl.setAttribute('cx', cx);
-        shapeEl.setAttribute('cy', cy);
-        shapeEl.setAttribute('r', r);
+        // Replace the circle with a pill shape:
+        // A pill can be represented by a rect with very high rx,ry relative to height.
+        shapeEl = document.createElementNS(ns, 'rect');
+        shapeEl.setAttribute('x', x);
+        shapeEl.setAttribute('y', y);
+        shapeEl.setAttribute('width', width);
+        shapeEl.setAttribute('height', height);
+        // Use radius that is half of height to create a pill appearance
+        const r = Math.min(width, height) / 2;
+        shapeEl.setAttribute('rx', r.toString());
+        shapeEl.setAttribute('ry', r.toString());
         shapeEl.setAttribute('class', 'node');
     } else if (shapeType === 'diamond') {
         shapeEl = document.createElementNS(ns, 'polygon');
@@ -190,7 +196,6 @@ function createNodeShape(x, y, width, height, shapeType) {
     } else if (shapeType === 'hexagon') {
         shapeEl = document.createElementNS(ns, 'polygon');
         // hexagon points (flat topped):
-        // Let's do a wide hex: top-left, top-right, mid-right, bottom-right, bottom-left, mid-left
         const p1 = `${x+width*0.25},${y}`;
         const p2 = `${x+width*0.75},${y}`;
         const p3 = `${x+width},${y+height/2}`;
