@@ -13,7 +13,6 @@
     <h2>Flowchart Menu</h2>
     <button id="settings-btn">Settings</button>
     <button id="import-btn">Import Diagram</button>
-    <!-- NEW BUTTON: Import K8s -->
     <button id="import-k8s-btn">Import K8s</button>
     <button id="export-btn">Export Diagram</button>
     <button id="theme-toggle">🌞 Light Mode</button>
@@ -22,8 +21,10 @@
   <!-- SVG Container -->
   <div id="svg-container">
     <svg id="flowchart">
-      <g id="connectors-layer"></g>
-      <g id="nodes-layer"></g>
+      <g id="zoom-pan-group">
+        <g id="connectors-layer"></g>
+        <g id="nodes-layer"></g>
+      </g>
     </svg>
   </div>
 
@@ -114,7 +115,7 @@
     </div>
   </div>
 
-  <!-- NEW: Import K8s Modal -->
+  <!-- Import K8s Modal -->
   <div id="import-k8s-modal" class="modal">
     <div class="modal-content">
       <span class="close" id="import-k8s-close">×</span>

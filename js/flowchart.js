@@ -13,7 +13,7 @@ import {
 
 import { 
     selectNode, 
-    onMouseDown 
+    onMouseDown as handleNodeOnMouseDown 
 } from './flowchart-drag-handlers.js';
 
 import {
@@ -31,6 +31,7 @@ import {
 
 document.addEventListener('DOMContentLoaded', () => {
     const svg = document.getElementById('flowchart');
+    const zoomPanGroup = svg.querySelector('#zoom-pan-group');
     const connectorsLayer = document.getElementById('connectors-layer');
     const nodesLayer = document.getElementById('nodes-layer');
     const settingsBtn = document.getElementById('settings-btn');
@@ -54,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const importBtn = document.getElementById('import-btn');
     const exportBtn = document.getElementById('export-btn');
 
-    // NEW: K8s Import elements
     const importK8sBtn = document.getElementById('import-k8s-btn');
     const importK8sModal = document.getElementById('import-k8s-modal');
     const importK8sClose = document.getElementById('import-k8s-close');
@@ -96,6 +96,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let rightClickY = 0;
     let rightClickedNode = null;
     let selectedConnector = null; 
+
+    // Zoom and Pan vars
+    let currentScale = 1.0;
+    let currentTranslateX = 0;
+    let currentTranslateY = 0;
+
+    // Distinguish between panning and node dragging
+    let isPanning = false;
+    let panStartX = 0;
+    let panStartY = 0;
 
     function updateSelectedNode(nodeEl) {
         selectedNode = nodeEl;
@@ -211,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: c.type
             });
 
-            // Attach the context menu event to this connector
             attachConnectorContextMenu(path);
         });
 
@@ -243,24 +252,16 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDiagramFromJSON(data);
     }
 
-    // NEW: Function to parse K8s JSON and create topology data
     function createTopologyFromK8sResources(k8sJson) {
-        // k8sJson is expected to be output from `kubectl get services,deployments,pods -o json`
-        // Structure: items: [ {kind: Service/Deployment/Pod, metadata:{}, spec:{}}, ... ]
-
         const items = k8sJson.items || [];
         const services = items.filter(i => i.kind === 'Service');
         const deployments = items.filter(i => i.kind === 'Deployment');
         const pods = items.filter(i => i.kind === 'Pod');
 
-        // Create a mapping of pods by their labels for quick lookup
-        // Actually we just need to find pods matching selectors
-        // We'll create arrays of nodes first
         let nodeIdCounter = 1;
         const nodeData = [];
         const connectorData = [];
 
-        // Helper: create node
         function createNode(id, x, y, label, shape, inputType='none', outputType='none') {
             return {
                 id,
@@ -268,29 +269,20 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        // We'll do a simple layout: Services at top row, Deployments at middle row, Pods at bottom row
-        // Just to differentiate them visually in the demo.
-        // x spacing: 200px apart
-        // services start at (100,100)
-        // deployments start at (100,300)
-        // pods start at (100,500)
-        
         let sx = 100;
         let dx = 100;
         let px = 100;
         const xIncrement = 200;
 
-        // Create service nodes
         const serviceNodes = {};
         for (const svc of services) {
             const id = `S${nodeIdCounter++}`;
             const label = svc.metadata.name;
             serviceNodes[svc.metadata.name] = id;
-            nodeData.push(createNode(id, sx, 100, label, 'circle')); // circle replaced by pill
+            nodeData.push(createNode(id, sx, 100, label, 'circle'));
             sx += xIncrement;
         }
 
-        // Create deployment nodes
         const deploymentNodes = {};
         for (const dep of deployments) {
             const id = `D${nodeIdCounter++}`;
@@ -303,7 +295,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dx += xIncrement;
         }
 
-        // Create pod nodes
         const podNodes = {};
         for (const pod of pods) {
             const id = `P${nodeIdCounter++}`;
@@ -316,12 +307,17 @@ document.addEventListener('DOMContentLoaded', () => {
             px += xIncrement;
         }
 
-        // Now create connectors:
-        // 1. Services → Pods (match svc.spec.selector with pod.metadata.labels)
+        function labelsMatch(selector, labels) {
+            for (const [k,v] of Object.entries(selector)) {
+                if (labels[k] !== v) return false;
+            }
+            return true;
+        }
+
+        // Services → Pods
         for (const svc of services) {
             const svcNodeId = serviceNodes[svc.metadata.name];
             const svcSelector = svc.spec.selector || {};
-            // Find pods that match this selector
             for (const [podName, pObj] of Object.entries(podNodes)) {
                 if (labelsMatch(svcSelector, pObj.labels)) {
                     const connId = `connector-${svcNodeId}-${pObj.id}`;
@@ -335,7 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Deployments → Pods (match dep.spec.selector.matchLabels with pod.metadata.labels)
+        // Deployments → Pods
         for (const dep of deployments) {
             const depNodeId = deploymentNodes[dep.metadata.name].id;
             const depSelector = deploymentNodes[dep.metadata.name].matchLabels;
@@ -350,14 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             }
-        }
-
-        // Utility function to check if all selector keys match in labels
-        function labelsMatch(selector, labels) {
-            for (const [k,v] of Object.entries(selector)) {
-                if (labels[k] !== v) return false;
-            }
-            return true;
         }
 
         return { nodes: nodeData, connectors: connectorData };
@@ -532,12 +520,83 @@ document.addEventListener('DOMContentLoaded', () => {
         settingsModal.style.display = 'none';
     });
 
+    // Helper to apply transformations
+    function applyTransformations() {
+        zoomPanGroup.setAttribute('transform', `translate(${currentTranslateX}, ${currentTranslateY}) scale(${currentScale})`);
+    }
+
+    // Convert screen coordinates to SVG coordinates
+    function getSvgPoint(clientX, clientY) {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const globalPoint = pt.matrixTransform(svg.getScreenCTM().inverse());
+        return globalPoint;
+    }
+
+    // Zoom at mouse position
+    svg.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        const zoomFactor = 0.1;
+        const s0 = currentScale;
+        let s1 = s0 + (e.deltaY < 0 ? zoomFactor : -zoomFactor);
+        s1 = Math.max(s1, 0.1);
+
+        // Mouse position in SVG coords
+        const p = getSvgPoint(e.clientX, e.clientY);
+
+        // Adjust translations so that the point p stays under the cursor
+        currentTranslateX = p.x - (p.x - currentTranslateX) * (s1 / s0);
+        currentTranslateY = p.y - (p.y - currentTranslateY) * (s1 / s0);
+        currentScale = s1;
+
+        applyTransformations();
+    });
+
+    let mouseDownTarget = null;
+
+    // We pan with left click ONLY if user clicked on empty space
     svg.addEventListener('mousedown', (e) => {
-        const nodeGroup = e.target.closest('.draggable-group');
-        if (nodeGroup) {
-            updateSelectedNode(nodeGroup);
+        // If left click
+        if (e.button === 0) {
+            const nodeGroup = e.target.closest('.draggable-group');
+            const connectorPath = e.target.closest('path');
+            mouseDownTarget = nodeGroup || connectorPath;
+
+            if (!nodeGroup && !connectorPath) {
+                // Empty space -> start panning
+                isPanning = true;
+                panStartX = e.clientX - currentTranslateX;
+                panStartY = e.clientY - currentTranslateY;
+                e.preventDefault();
+            } else if (nodeGroup) {
+                // Node dragging as before
+                handleNodeOnMouseDown(e, svg, {disabled: true}, currentConnectorShape);
+            }
         }
-        onMouseDown(e, svg, {disabled: true}, currentConnectorShape);
+    });
+
+    svg.addEventListener('mousemove', (e) => {
+        if (isPanning) {
+            currentTranslateX = e.clientX - panStartX;
+            currentTranslateY = e.clientY - panStartY;
+            applyTransformations();
+        }
+    });
+
+    svg.addEventListener('mouseup', (e) => {
+        if (isPanning) {
+            isPanning = false;
+        }
+        mouseDownTarget = null;
+    });
+
+    svg.addEventListener('mouseleave', (e) => {
+        if (isPanning) {
+            isPanning = false;
+        }
+        mouseDownTarget = null;
     });
 
     importBtn.addEventListener('click', () => {
@@ -590,13 +649,11 @@ document.addEventListener('DOMContentLoaded', () => {
         exportModal.style.display = 'none';
     });
 
-    // Listen for newly created connectors
     document.addEventListener('connectorAdded', (e) => {
         const connectorEl = e.detail.connector;
         attachConnectorContextMenu(connectorEl);
     });
 
-    // NEW: Setup Import K8s workflow
     importK8sBtn.addEventListener('click', () => {
         importK8sModal.style.display = 'block';
     });
