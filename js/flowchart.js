@@ -1,33 +1,8 @@
-// flowchart.js
-
-import { 
-    nodes, 
-    connectors, 
-    updateConnectors, 
-    runTests,
-    capitalizeFirstLetter,
-    exportDiagramToJSON,
-    clearDiagram,
-    createNodeShape
-} from './flowchart-utils.js';
-
-import { 
-    selectNode, 
-    onMouseDown as handleNodeOnMouseDown 
-} from './flowchart-drag-handlers.js';
-
-import {
-    handleAddNode,
-    handleRemoveNode,
-    handleSettingsChange
-} from './flowchart-modal-handlers.js';
-
-import {
-    setupModalCloseListeners,
-    setupWindowClickHandler,
-    setupSettingsButtonListener,
-    initializeConnectionPoints
-} from './flowchart-event-handlers.js';
+import DiagramEngine from '../src/diagram/DiagramEngine.js';
+import convertJsonToDiagramData from '../src/importers/jsonImporter.js';
+import convertK8sToDiagramData from '../src/importers/k8sImporter.js';
+import ModalsController from '../src/ui/modalsController.js';
+import EventController from '../src/events/EventController.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const svg = document.getElementById('flowchart');
@@ -36,19 +11,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const nodesLayer = document.getElementById('nodes-layer');
     const settingsBtn = document.getElementById('settings-btn');
 
-    const addNodeModal = document.getElementById('add-node-modal');
-    const addNodeClose = document.getElementById('add-node-close');
-    const addNodeCancel = document.getElementById('add-node-cancel');
+    const modalsController = new ModalsController();
+    const diagramEngine = new DiagramEngine(svg);
+    const eventController = new EventController(svg, diagramEngine);
+
     const addNodeForm = document.getElementById('add-node-form');
-
-    const removeNodeModal = document.getElementById('remove-node-modal');
-    const removeNodeClose = document.getElementById('remove-node-close');
-    const removeNodeCancel = document.getElementById('remove-node-cancel');
     const confirmRemoveBtn = document.getElementById('confirm-remove-btn');
-
-    const settingsModal = document.getElementById('settings-modal');
-    const settingsClose = document.getElementById('settings-close');
-    const settingsCancel = document.getElementById('settings-cancel');
     const settingsForm = document.getElementById('settings-form');
     const connectorShapeSelect = document.getElementById('connector-shape');
 
@@ -56,21 +24,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('export-btn');
 
     const importK8sBtn = document.getElementById('import-k8s-btn');
-    const importK8sModal = document.getElementById('import-k8s-modal');
-    const importK8sClose = document.getElementById('import-k8s-close');
-    const importK8sCancel = document.getElementById('import-k8s-cancel');
     const importK8sFile = document.getElementById('import-k8s-file');
     const confirmImportK8sBtn = document.getElementById('confirm-import-k8s-btn');
 
-    const importModal = document.getElementById('import-modal');
-    const importClose = document.getElementById('import-close');
-    const importCancel = document.getElementById('import-cancel');
-    const confirmImportBtn = document.getElementById('confirm-import-btn');
-
-    const exportModal = document.getElementById('export-modal');
-    const exportClose = document.getElementById('export-close');
-    const exportCancel = document.getElementById('export-cancel');
+    const importFile = document.getElementById('import-file');
+    const triggerExport = document.getElementById('trigger-export');
     const exportTextarea = document.getElementById('export-textarea');
+    const exportLink = document.getElementById('export-link');
 
     const contextMenu = document.getElementById('context-menu');
     const contextAddNode = document.getElementById('context-add-node');
@@ -84,10 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const contextNodeDiamond = document.getElementById('context-node-diamond');
     const contextNodeHexagon = document.getElementById('context-node-hexagon');
 
-    const importFile = document.getElementById('import-file');
-    const triggerExport = document.getElementById('trigger-export');
-    const exportLink = document.getElementById('export-link');
-
     let nodeCounter = 1; 
     let selectedNode = null; 
     let currentConnectorShape = 'elbow';
@@ -97,19 +53,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let rightClickedNode = null;
     let selectedConnector = null; 
 
-    // Zoom and Pan vars
     let currentScale = 1.0;
     let currentTranslateX = 0;
     let currentTranslateY = 0;
 
-    // Distinguish between panning and node dragging
     let isPanning = false;
     let panStartX = 0;
     let panStartY = 0;
 
     function updateSelectedNode(nodeEl) {
         selectedNode = nodeEl;
-        selectNode(nodeEl, {disabled: true});
+        eventController.selectNode(nodeEl, {disabled: true});
     }
 
     const initialData = {
@@ -127,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function attachConnectorContextMenu(connectorEl) {
         connectorEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            selectedConnector = connectors.find(conn => conn.el === e.target);
+            selectedConnector = diagramEngine.connectors.find(conn => conn.el === e.target);
             if (selectedConnector) {
                 contextAddNode.style.display = 'none';
                 contextRemoveNode.style.display = 'none';
@@ -143,63 +97,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeDiagramFromJSON(data) {
-        clearDiagram(svg);
+        diagramEngine.clear();
 
         data.nodes.forEach(n => {
-            const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            nodeGroup.setAttribute('class', 'draggable-group');
-            nodeGroup.setAttribute('data-node-id', n.id);
-            nodeGroup.setAttribute('data-node-shape', n.shape);
-            nodeGroup.dataset.x = n.x;
-            nodeGroup.dataset.y = n.y;
-            nodeGroup.dataset.width = n.width;
-            nodeGroup.dataset.height = n.height;
-
-            const shapeEl = createNodeShape(n.x, n.y, n.width, n.height, n.shape);
-
-            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('class', 'node-text');
-            text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('alignment-baseline', 'middle');
-            text.setAttribute('x', n.x + n.width / 2);
-            text.setAttribute('y', n.y + n.height / 2 + 5);
-            text.textContent = n.label;
-
-            const inputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            inputPoint.setAttribute('class', 'connection-point input');
-            inputPoint.setAttribute('cx', n.x);
-            inputPoint.setAttribute('cy', n.y + n.height/2);
-            inputPoint.setAttribute('r', '5');
-
-            const outputPoint = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            outputPoint.setAttribute('class', 'connection-point output');
-            outputPoint.setAttribute('cx', n.x + n.width);
-            outputPoint.setAttribute('cy', n.y + n.height/2);
-            outputPoint.setAttribute('r', '5');
-
-            const inputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            inputLabel.setAttribute('class', 'type-label');
-            inputLabel.setAttribute('x', n.x);
-            inputLabel.setAttribute('y', n.y + n.height/2 - 10);
-            inputLabel.setAttribute('text-anchor', 'middle');
-            inputLabel.textContent = capitalizeFirstLetter(n.inputType);
-
-            const outputLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            outputLabel.setAttribute('class', 'type-label');
-            outputLabel.setAttribute('x', n.x + n.width);
-            outputLabel.setAttribute('y', n.y + n.height/2 - 10);
-            outputLabel.setAttribute('text-anchor', 'middle');
-            outputLabel.textContent = capitalizeFirstLetter(n.outputType);
-
-            nodeGroup.appendChild(shapeEl);
-            nodeGroup.appendChild(text);
-            nodeGroup.appendChild(inputPoint);
-            nodeGroup.appendChild(outputPoint);
-            nodeGroup.appendChild(inputLabel);
-            nodeGroup.appendChild(outputLabel);
-
-            nodesLayer.appendChild(nodeGroup);
-            nodes.push({ id: n.id, el: nodeGroup });
+            const node = {
+                id: n.id,
+                x: n.x,
+                y: n.y,
+                width: n.width,
+                height: n.height,
+                label: n.label,
+                inputType: n.inputType,
+                outputType: n.outputType,
+                shape: n.shape
+            };
+            diagramEngine.addNode(node);
 
             const numericPart = parseInt(n.id.replace(/\D+/g,''), 10);
             if (!isNaN(numericPart) && numericPart >= nodeCounter) {
@@ -208,24 +120,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         data.connectors.forEach(c => {
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('id', c.id);
-            path.setAttribute('class', c.type === 'solid' ? 'connector-solid' : 'connector-dashed');
-            connectorsLayer.appendChild(path);
-
-            connectors.push({
+            const connector = {
                 id: c.id,
                 from: c.from,
                 to: c.to,
-                el: path,
                 type: c.type
-            });
-
-            attachConnectorContextMenu(path);
+            };
+            diagramEngine.addConnector(connector);
+            attachConnectorContextMenu(connector.el);
         });
 
-        updateConnectors(currentConnectorShape);
-        initializeConnectionPoints(nodes);
+        diagramEngine.updateConnectors(currentConnectorShape);
     }
 
     function importDiagramFromJSON(jsonString) {
@@ -252,132 +157,30 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeDiagramFromJSON(data);
     }
 
-    function createTopologyFromK8sResources(k8sJson) {
-        const items = k8sJson.items || [];
-        const services = items.filter(i => i.kind === 'Service');
-        const deployments = items.filter(i => i.kind === 'Deployment');
-        const pods = items.filter(i => i.kind === 'Pod');
+    function changeNodeShape(shape) {
+        if (!rightClickedNode) return;
+        const nodeData = diagramEngine.nodes.find(n => n.el === rightClickedNode);
+        if (!nodeData) return;
 
-        let nodeIdCounter = 1;
-        const nodeData = [];
-        const connectorData = [];
-
-        function createNode(id, x, y, label, shape, inputType='none', outputType='none') {
-            return {
-                id,
-                x, y, width:100, height:50, label, inputType, outputType, shape
-            };
+        const oldShapeEl = rightClickedNode.querySelector('.node');
+        if (oldShapeEl) {
+            rightClickedNode.removeChild(oldShapeEl);
         }
 
-        let sx = 100;
-        let dx = 100;
-        let px = 100;
-        const xIncrement = 200;
+        const width = parseFloat(rightClickedNode.dataset.width);
+        const height = parseFloat(rightClickedNode.dataset.height);
+        const x = parseFloat(rightClickedNode.dataset.x);
+        const y = parseFloat(rightClickedNode.dataset.y);
 
-        const serviceNodes = {};
-        for (const svc of services) {
-            const id = `S${nodeIdCounter++}`;
-            const label = svc.metadata.name;
-            serviceNodes[svc.metadata.name] = id;
-            nodeData.push(createNode(id, sx, 100, label, 'circle'));
-            sx += xIncrement;
-        }
+        const newShapeEl = diagramEngine.createNodeShape(x, y, width, height, shape);
+        rightClickedNode.insertBefore(newShapeEl, rightClickedNode.firstChild);
+        rightClickedNode.setAttribute('data-node-shape', shape);
 
-        const deploymentNodes = {};
-        for (const dep of deployments) {
-            const id = `D${nodeIdCounter++}`;
-            const label = dep.metadata.name;
-            deploymentNodes[dep.metadata.name] = {
-                id,
-                matchLabels: dep.spec.selector?.matchLabels || {}
-            };
-            nodeData.push(createNode(id, dx, 300, label, 'diamond'));
-            dx += xIncrement;
-        }
-
-        const podNodes = {};
-        for (const pod of pods) {
-            const id = `P${nodeIdCounter++}`;
-            const label = pod.metadata.name;
-            podNodes[pod.metadata.name] = {
-                id,
-                labels: pod.metadata.labels || {}
-            };
-            nodeData.push(createNode(id, px, 500, label, 'rect'));
-            px += xIncrement;
-        }
-
-        function labelsMatch(selector, labels) {
-            for (const [k,v] of Object.entries(selector)) {
-                if (labels[k] !== v) return false;
-            }
-            return true;
-        }
-
-        // Services → Pods
-        for (const svc of services) {
-            const svcNodeId = serviceNodes[svc.metadata.name];
-            const svcSelector = svc.spec.selector || {};
-            for (const [podName, pObj] of Object.entries(podNodes)) {
-                if (labelsMatch(svcSelector, pObj.labels)) {
-                    const connId = `connector-${svcNodeId}-${pObj.id}`;
-                    connectorData.push({
-                        id: connId,
-                        from: svcNodeId,
-                        to: pObj.id,
-                        type: 'solid'
-                    });
-                }
-            }
-        }
-
-        // Deployments → Pods
-        for (const dep of deployments) {
-            const depNodeId = deploymentNodes[dep.metadata.name].id;
-            const depSelector = deploymentNodes[dep.metadata.name].matchLabels;
-            for (const [podName, pObj] of Object.entries(podNodes)) {
-                if (labelsMatch(depSelector, pObj.labels)) {
-                    const connId = `connector-${depNodeId}-${pObj.id}`;
-                    connectorData.push({
-                        id: connId,
-                        from: depNodeId,
-                        to: pObj.id,
-                        type: 'dashed'
-                    });
-                }
-            }
-        }
-
-        return { nodes: nodeData, connectors: connectorData };
+        diagramEngine.updateConnectors(currentConnectorShape);
     }
 
-    setupModalCloseListeners(
-        addNodeModal, 
-        addNodeClose, 
-        addNodeCancel,
-        removeNodeModal, 
-        removeNodeClose, 
-        removeNodeCancel,
-        settingsModal, 
-        settingsClose, 
-        settingsCancel,
-        importModal,
-        importClose,
-        importCancel,
-        exportModal,
-        exportClose,
-        exportCancel
-    );
-
-    setupWindowClickHandler(
-        addNodeModal, 
-        removeNodeModal, 
-        settingsModal,
-        importModal,
-        exportModal
-    );
-
-    setupSettingsButtonListener(settingsBtn, settingsModal);
+    modalsController.setupModalCloseListeners();
+    modalsController.setupWindowClickHandler();
 
     svg.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -422,7 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     contextAddNode.addEventListener('click', () => {
-        addNodeModal.style.display = 'block';
+        modalsController.openModal('addNodeModal');
         addNodeForm.reset();
     });
 
@@ -431,14 +234,14 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please select a node to remove.');
             return;
         }
-        removeNodeModal.style.display = 'block';
+        modalsController.openModal('removeNodeModal');
     });
 
     contextConnectorSolid.addEventListener('click', () => {
         if (selectedConnector) {
             selectedConnector.type = 'solid';
             selectedConnector.el.setAttribute('class', 'connector-solid');
-            updateConnectors(currentConnectorShape);
+            diagramEngine.updateConnectors(currentConnectorShape);
         }
     });
 
@@ -446,31 +249,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedConnector) {
             selectedConnector.type = 'dashed';
             selectedConnector.el.setAttribute('class', 'connector-dashed');
-            updateConnectors(currentConnectorShape);
+            diagramEngine.updateConnectors(currentConnectorShape);
         }
     });
-
-    function changeNodeShape(shape) {
-        if (!rightClickedNode) return;
-        const nodeData = nodes.find(n => n.el === rightClickedNode);
-        if (!nodeData) return;
-
-        const oldShapeEl = rightClickedNode.querySelector('.node');
-        if (oldShapeEl) {
-            rightClickedNode.removeChild(oldShapeEl);
-        }
-
-        const width = parseFloat(rightClickedNode.dataset.width);
-        const height = parseFloat(rightClickedNode.dataset.height);
-        const x = parseFloat(rightClickedNode.dataset.x);
-        const y = parseFloat(rightClickedNode.dataset.y);
-
-        const newShapeEl = createNodeShape(x, y, width, height, shape);
-        rightClickedNode.insertBefore(newShapeEl, rightClickedNode.firstChild);
-        rightClickedNode.setAttribute('data-node-shape', shape);
-
-        updateConnectors(currentConnectorShape);
-    }
 
     contextNodeRoundedRect.addEventListener('click', () => changeNodeShape('rounded-rect'));
     contextNodeRect.addEventListener('click', () => changeNodeShape('rect'));
@@ -492,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (result.success) {
             nodeCounter = result.nodeCounter;
-            addNodeModal.style.display = 'none';
+            modalsController.closeModal('addNodeModal');
         }
     });
 
@@ -506,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (success) {
             updateSelectedNode(null);
-            removeNodeModal.style.display = 'none';
+            modalsController.closeModal('removeNodeModal');
         }
     });
 
@@ -516,16 +297,14 @@ document.addEventListener('DOMContentLoaded', () => {
             connectorShapeSelect, 
             currentConnectorShape
         );
-        updateConnectors(currentConnectorShape);
-        settingsModal.style.display = 'none';
+        diagramEngine.updateConnectors(currentConnectorShape);
+        modalsController.closeModal('settingsModal');
     });
 
-    // Helper to apply transformations
     function applyTransformations() {
         zoomPanGroup.setAttribute('transform', `translate(${currentTranslateX}, ${currentTranslateY}) scale(${currentScale})`);
     }
 
-    // Convert screen coordinates to SVG coordinates
     function getSvgPoint(clientX, clientY) {
         const pt = svg.createSVGPoint();
         pt.x = clientX;
@@ -534,7 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return globalPoint;
     }
 
-    // Zoom at mouse position
     svg.addEventListener('wheel', (e) => {
         e.preventDefault();
 
@@ -543,10 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let s1 = s0 + (e.deltaY < 0 ? zoomFactor : -zoomFactor);
         s1 = Math.max(s1, 0.1);
 
-        // Mouse position in SVG coords
         const p = getSvgPoint(e.clientX, e.clientY);
 
-        // Adjust translations so that the point p stays under the cursor
         currentTranslateX = p.x - (p.x - currentTranslateX) * (s1 / s0);
         currentTranslateY = p.y - (p.y - currentTranslateY) * (s1 / s0);
         currentScale = s1;
@@ -556,23 +332,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let mouseDownTarget = null;
 
-    // We pan with left click ONLY if user clicked on empty space
     svg.addEventListener('mousedown', (e) => {
-        // If left click
         if (e.button === 0) {
             const nodeGroup = e.target.closest('.draggable-group');
             const connectorPath = e.target.closest('path');
             mouseDownTarget = nodeGroup || connectorPath;
 
             if (!nodeGroup && !connectorPath) {
-                // Empty space -> start panning
                 isPanning = true;
                 panStartX = e.clientX - currentTranslateX;
                 panStartY = e.clientY - currentTranslateY;
                 e.preventDefault();
             } else if (nodeGroup) {
-                // Node dragging as before
-                handleNodeOnMouseDown(e, svg, {disabled: true}, currentConnectorShape);
+                eventController.onMouseDown(e, {disabled: true}, currentConnectorShape);
             }
         }
     });
@@ -600,20 +372,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     importBtn.addEventListener('click', () => {
-        importModal.style.display = 'block';
+        modalsController.openModal('importModal');
     });
 
     exportBtn.addEventListener('click', () => {
-        const jsonData = exportDiagramToJSON();
+        const jsonData = diagramEngine.exportDiagramToJSON();
         exportTextarea.value = JSON.stringify(jsonData, null, 2);
-        exportModal.style.display = 'block';
+        modalsController.openModal('exportModal');
     });
 
     confirmImportBtn.addEventListener('click', () => {
         const fileReaderTextArea = document.getElementById('import-textarea');
         const jsonString = fileReaderTextArea ? fileReaderTextArea.value : '';
         importDiagramFromJSON(jsonString);
-        importModal.style.display = 'none';
+        modalsController.closeModal('importModal');
     });
 
     importFile.addEventListener('change', (e) => {
@@ -623,13 +395,13 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (event) => {
             const jsonString = event.target.result;
             importDiagramFromJSON(jsonString);
-            importModal.style.display = 'none';
+            modalsController.closeModal('importModal');
         };
 
         reader.onerror = (error) => {
             console.error('File reading error:', error);
             alert('Error reading the file.');
-            importModal.style.display = 'none';
+            modalsController.closeModal('importModal');
         };
 
         if (file) {
@@ -638,7 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     triggerExport.addEventListener('click', () => {
-        const jsonData = exportDiagramToJSON();
+        const jsonData = diagramEngine.exportDiagramToJSON();
         const jsonString = JSON.stringify(jsonData, null, 2);
         const blob = new Blob([jsonString], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -646,7 +418,7 @@ document.addEventListener('DOMContentLoaded', () => {
         exportLink.download = 'flowchart.json';
         exportLink.click();
         URL.revokeObjectURL(url);
-        exportModal.style.display = 'none';
+        modalsController.closeModal('exportModal');
     });
 
     document.addEventListener('connectorAdded', (e) => {
@@ -655,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     importK8sBtn.addEventListener('click', () => {
-        importK8sModal.style.display = 'block';
+        modalsController.openModal('importK8sModal');
     });
 
     confirmImportK8sBtn.addEventListener('click', () => {
@@ -668,24 +440,16 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.onload = (event) => {
             try {
                 const k8sJson = JSON.parse(event.target.result);
-                const topoData = createTopologyFromK8sResources(k8sJson);
+                const topoData = convertK8sToDiagramData(k8sJson);
                 initializeDiagramFromJSON(topoData);
             } catch (err) {
                 console.error('Error parsing K8s JSON', err);
                 alert('Invalid K8s JSON file');
             }
-            importK8sModal.style.display = 'none';
+            modalsController.closeModal('importK8sModal');
         };
         reader.readAsText(file);
     });
 
-    importK8sClose.onclick = () => {
-        importK8sModal.style.display = 'none';
-    };
-    importK8sCancel.onclick = () => {
-        importK8sModal.style.display = 'none';
-    };
-
     initializeDiagramFromJSON(initialData);
-    runTests();
 });
